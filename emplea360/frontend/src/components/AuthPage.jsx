@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function AuthPage({ onLogin, apiUrl }) {
   const [isLogin, setIsLogin] = useState(true);
-  // Dejamos el estado inicial de teléfono con el prefijo preestablecido
+  // Dejamos el estado inicial de teléfono con el prefijo preestablecido de San Juan, Argentina
   const [formData, setFormData] = useState({ email: '', password: '', telefono: '+549264', rol: 'candidato', nombre: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -15,19 +15,38 @@ export default function AuthPage({ onLogin, apiUrl }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
+    // 1. Validamos y normalizamos la URL para que siempre apunte correctamente a las rutas del backend
+    let baseEndpoint = apiUrl || '';
+    if (baseEndpoint.endsWith('/')) {
+      baseEndpoint = baseEndpoint.slice(0, -1);
+    }
+    
+    // Si la URL pasada por props no incluye el prefijo obligatorio /api, se lo sumamos automáticamente
+    if (!baseEndpoint.includes('/api')) {
+      baseEndpoint = `${baseEndpoint}/api`;
+    }
+
     const endpoint = isLogin ? '/login' : '/register';
+    const finalUrl = `${baseEndpoint}${endpoint}`;
 
     try {
-      const response = await fetch(`${apiUrl}${endpoint}`, {
+      const response = await fetch(finalUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
       
-      // Si el servidor responde con un error HTML (como el de la página no encontrada), lanzamos el aviso antes de que falle el JSON
+      // 2. Controlamos las respuestas caídas o errores HTML antes de intentar decodificar el JSON
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Error en la URL del servidor o ruta inexistente.' }));
-        throw new Error(errorData.error || 'Algo salió mal en el servidor');
+        let errorMessage = 'Error en la URL del servidor o ruta inexistente.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonErr) {
+          // Si no es un JSON válido (por ejemplo, devolvió un HTML de error de Railway), usamos el mensaje por defecto
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
