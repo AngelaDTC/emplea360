@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 export default function AuthPage({ onLogin, apiUrl }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ email: '', password: '', telefono: '', rol: 'candidato', nombre: '' });
+  // Dejamos el estado inicial de teléfono con el prefijo preestablecido
+  const [formData, setFormData] = useState({ email: '', password: '', telefono: '+549264', rol: 'candidato', nombre: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -22,9 +23,14 @@ export default function AuthPage({ onLogin, apiUrl }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const data = await response.json();
+      
+      // Si el servidor responde con un error HTML (como el de la página no encontrada), lanzamos el aviso antes de que falle el JSON
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Error en la URL del servidor o ruta inexistente.' }));
+        throw new Error(errorData.error || 'Algo salió mal en el servidor');
+      }
 
-      if (!response.ok) throw new Error(data.error || 'Algo salió mal');
+      const data = await response.json();
 
       if (isLogin) {
         onLogin(data.token, data.rol);
@@ -60,7 +66,15 @@ export default function AuthPage({ onLogin, apiUrl }) {
         {!isLogin && (
           <div style={{ marginBottom: '15px' }}>
             <label style={{ display: 'block', marginBottom: '5px' }}>Teléfono (WhatsApp)</label>
-            <input type="tel" name="telefono" placeholder="+54 264 XXXXXXX" onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+            <input 
+              type="tel" 
+              name="telefono" 
+              defaultValue="+549264" 
+              placeholder="XXXXXXX (Siete dígitos)" 
+              onChange={handleChange} 
+              required 
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
+            />
           </div>
         )}
 
