@@ -5,7 +5,7 @@ import AuthPage from './components/AuthPage';
 import DashboardCandidato from './components/DashboardCandidato';
 import DashboardEmpresa from './components/DashboardEmpresa';
 
-const API_URL = "https://emplea360-production.up.railway.app/api"; 
+const API_URL = "https://emplea360-production-517a.up.railway.app"; 
 // Cambia lo de adentro por la URL exacta que copiaste de Railway
 
 function App() {
