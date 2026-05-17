@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function AuthPage({ onLogin, apiUrl }) {
   const [isLogin, setIsLogin] = useState(true);
-  // Dejamos el estado inicial de teléfono con el prefijo preestablecido de San Juan, Argentina
   const [formData, setFormData] = useState({ email: '', password: '', telefono: '+549264', rol: 'candidato', nombre: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  // Limpiar errores y reiniciar estados básicos al cambiar entre Login y Registro
+  useEffect(() => {
+    setError('');
+    setFormData({ email: '', password: '', telefono: '+549264', rol: 'candidato', nombre: '' });
+  }, [isLogin]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -73,13 +78,13 @@ export default function AuthPage({ onLogin, apiUrl }) {
         {!isLogin && (
           <div style={{ marginBottom: '15px' }}>
             <label style={{ display: 'block', marginBottom: '5px' }}>Nombre / Razón Social</label>
-            <input type="text" name="nombre" onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+            <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
           </div>
         )}
 
         <div style={{ marginBottom: '15px' }}>
           <label style={{ display: 'block', marginBottom: '5px' }}>Email</label>
-          <input type="email" name="email" onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+          <input type="email" name="email" value={formData.email} onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
         </div>
 
         {!isLogin && (
@@ -88,7 +93,7 @@ export default function AuthPage({ onLogin, apiUrl }) {
             <input 
               type="tel" 
               name="telefono" 
-              defaultValue="+549264" 
+              value={formData.telefono} 
               placeholder="XXXXXXX (Siete dígitos)" 
               onChange={handleChange} 
               required 
@@ -99,13 +104,13 @@ export default function AuthPage({ onLogin, apiUrl }) {
 
         <div style={{ marginBottom: '15px' }}>
           <label style={{ display: 'block', marginBottom: '5px' }}>Contraseña</label>
-          <input type="password" name="password" onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+          <input type="password" name="password" value={formData.password} onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
         </div>
 
         {!isLogin && (
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '5px' }}>Tipo de Perfil</label>
-            <select name="rol" onChange={handleChange} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+            <select name="rol" value={formData.rol} onChange={handleChange} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
               <option value="candidato">Candidato (Busco Trabajo)</option>
               <option value="empresa">Empresa (Busco Talento)</option>
             </select>
