@@ -32,7 +32,8 @@ export default function AuthPage({ onLogin, apiUrl }) {
       baseEndpoint = `${baseEndpoint}/api`;
     }
 
-    const endpoint = isLogin ? '/login' : '/register';
+    // --- CORRECCIÓN DE RUTAS COORDINADAS CON EL BACKEND ---
+    const endpoint = isLogin ? '/auth/login' : '/auth/register';
     const finalUrl = `${baseEndpoint}${endpoint}`;
 
     try {
