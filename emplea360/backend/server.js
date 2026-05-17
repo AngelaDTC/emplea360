@@ -6,7 +6,9 @@ const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 
 const app = express();
-app.use(cors());
+
+// --- MIDDLEWARES GLOBALES ---
+app.use(cors()); // Esto permite que Vercel se conecte a Railway sin bloqueos de seguridad
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'emplea360_super_secret_key_2026';
@@ -110,7 +112,7 @@ app.post('/api/candidato/cv-upload', verificarToken, async (req, res) => {
         res.json({ 
             mensaje: "CV Procesado por el optimizador ATS. Perfil actualizado automáticamente.",
             habilidades: habilidadesExtraidas,
-            experiencia: experienciaExtraida
+            experience: experienciaExtraida
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
