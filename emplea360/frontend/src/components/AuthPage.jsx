@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// 1. Agregamos 'apiUrl' entre las llaves para recibir la URL de Railway que viene desde app.jsx
 export default function AuthPage({ onLogin, apiUrl }) {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ email: '', password: '', telefono: '', rol: 'candidato', nombre: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  // 2. Borramos la línea vieja del localhost:5000 y usamos directamente la apiUrl que nos pasaron
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -19,7 +17,6 @@ export default function AuthPage({ onLogin, apiUrl }) {
     const endpoint = isLogin ? '/login' : '/register';
 
     try {
-      // 3. Ahora fetch va a usar automáticamente la URL en la nube de Railway
       const response = await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +79,7 @@ export default function AuthPage({ onLogin, apiUrl }) {
           </div>
         )}
 
-        <button type="submit" className="btn-primary" style={{ width: '100%', padding: '12px' }}>
+        <button type="submit" style={{ width: '100%', padding: '12px', background: '#00458e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
           {isLogin ? 'Ingresar' : 'Crear Cuenta'}
         </button>
 
@@ -90,9 +87,6 @@ export default function AuthPage({ onLogin, apiUrl }) {
           {isLogin ? '¿No tienes cuenta? Regístrate aquí' : '¿Ya tienes cuenta? Conéctate'}
         </p>
       </form>
-    </div>
-  );
-}
     </div>
   );
 }
