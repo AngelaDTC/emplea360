@@ -145,5 +145,53 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 });
 
+// --- MIDDLEWARE DE AUTENTICACIÓN PARA PROTEGER RUTAS ---
+const verificarToken = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(403).json({ error: 'Token no provisto.' });
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ error: 'Token inválido o expirado.' });
+        req.usuarioId = decoded.id;
+        next();
+    });
+};
+
+// --- ENDPOINT PARA ACTUALIZAR PERFIL CANDIDATO (CV, FOTO Y ATS) ---
+app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
+    const { foto_base64, cv_base64, ats_score, ats_consejos } = req.body;
+    try {
+        // Buscamos y actualizamos el candidato asociado al usuario autenticado
+        const resultado = await pool.query(
+            `UPDATE candidatos 
+             SET foto_base64 = COALESCE($1, foto_base64), 
+                 cv_base64 = COALESCE($2, cv_base64),
+                 ats_score = COALESCE($3, ats_score),
+                 ats_consejos = COALESCE($4, ats_consejos)
+             WHERE usuario_id = $5 RETURNING *`,
+            [foto_base64, cv_base64, ats_score, ats_consejos, req.usuarioId]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({ error: 'Perfil de candidato no encontrado.' });
+        }
+
+        res.json({ mensaje: 'Perfil guardado con éxito en la base de datos.', candidato: resultado.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- ENDPOINT PARA LEER EL PERFIL AL INICIAR EL DASHBOARD ---
+app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
+    try {
+        const resultado = await pool.query('SELECT * FROM candidatos WHERE usuario_id = $1', [req.usuarioId]);
+        if (resultado.rows.length === 0) return res.status(404).json({ error: 'Candidato no encontrado.' });
+        res.json(resultado.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
