@@ -77,7 +77,11 @@ export default function AuthPage({ onLogin }) {
         onLogin(data.token, data.rol);
         navigate('/dashboard');
       } else {
-        // En lugar de mandarlo a login, abrimos la casilla del código
+        // 🚨 CAMBIO AGREGADO: Alerta de rescate por si la API de WhatsApp no está activa o demora
+        if (data.bypassCode) {
+          alert(`[Modo Desarrollo] Tu código de verificación es: ${data.bypassCode}\n(El mensaje impactará en 30 segundos en tu WhatsApp si el servicio está en línea).`);
+        }
+        // Abrimos la casilla para poner el código
         setIsVerifyingCode(true);
       }
     } catch (err) {
@@ -125,7 +129,13 @@ export default function AuthPage({ onLogin }) {
         throw new Error(errorData.error || 'No se pudo procesar la solicitud.');
       }
 
-      alert("Código de recuperación enviado. Por favor, revisa tus canales.");
+      const data = await response.json();
+      if (data.bypassCode) {
+        alert(`[Modo Desarrollo] Código de recuperación: ${data.bypassCode}`);
+      } else {
+        alert("Código de recuperación enviado. Por favor, revisa tus canales.");
+      }
+
       setIsForgotPassword(false);
       setIsLogin(true);
     } catch (err) {
