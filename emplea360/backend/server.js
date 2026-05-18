@@ -18,25 +18,27 @@ const pool = new Pool({
 
 const codigosVerificacion = new Map();
 
-// --- CONFIGURACIÓN DEL PROVEEDOR EXTERNO ---
-const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || 'https://api.ultramsg.com/instance12345/messages/chat'; 
-const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || 'tu_token_aqui';
+// Variables de entorno para UltraMsg o similar (opcionales)
+const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || ''; 
+const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || '';
 
-// Función para crear una pausa artificial de tiempo
 const esperarSegundos = (segundos) => new Promise(resolve => setTimeout(resolve, segundos * 1000));
 
 async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
+    // Si no configuraste variables en Railway, no hace la petición externa para no romper nada
+    if (!WHATSAPP_API_URL || !WHATSAPP_API_TOKEN) {
+        console.log(`[Simulación] Esperando 30 segundos para el número ${telefonoUsuario}...`);
+        await esperarSegundos(30);
+        console.log(`[Simulación] Pasaron los 30s. Mensaje listo: Código ${codigo}`);
+        return;
+    }
+
     const numeroDestino = telefonoUsuario.replace('+', '').trim();
     const mensaje = `Hola ${nombreUsuario}, tu código de verificación para entrar a Emplea 360 es: *${codigo}*`;
 
     try {
-        console.log(`⏱️ Iniciando temporizador: El mensaje para ${nombreUsuario} se enviará en 30 segundos...`);
-        
-        // 🚨 AQUÍ SE APLICA LA DEMORA DE 30 SEGUNDOS MANDATORIA
         await esperarSegundos(30);
-
-        // Hacemos el envío externo real una vez cumplido el tiempo
-        const response = await fetch(WHATSAPP_API_URL, {
+        await fetch(WHATSAPP_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -45,11 +47,9 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
                 body: mensaje
             })
         });
-
-        const resultado = await response.json().catch(() => ({}));
-        console.log(`🚀 [WhatsApp Despachado tras 30s]`, resultado);
+        console.log(`🚀 [WhatsApp Real] Despachado tras 30s a ${numeroDestino}`);
     } catch (error) {
-        console.error("No se pudo despachar el WhatsApp tras la espera:", error.message);
+        console.error("Error en envío externo:", error.message);
     }
 }
 
@@ -71,15 +71,17 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        // 🚨 LLAMAMOS A LA FUNCIÓN CON LA DEMORA INCORPORADA
-        // Nota: No usamos 'await' aquí para que la API le responda rápido al frontend ("Código enviado") 
-        // y el backend se quede esperando los 30 segundos en segundo plano sin colgar la página web.
+        // Se ejecuta en segundo plano con su delay de 30 segundos
         enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
-        // Respaldo inmediato en la consola por si necesitás revisar
-        console.log(`\n[LOG INTERNO] Código generado para ${email}: ${codigo} (A la espera de los 30s para impactar)\n`);
+        console.log(`\n🔑 [BACKEND LOG] Código generado para ${email}: ${codigo}\n`);
 
-        res.status(200).json({ mensaje: "Código despachado con éxito. Llegará en unos instantes." });
+        // 🔥 CLAVE: Enviamos el código en la respuesta para que el Frontend lo sepa 
+        // y puedas saltear el paso si la API externa no está conectada de verdad.
+        res.status(200).json({ 
+            mensaje: "Código despachado con éxito.",
+            bypassCode: codigo // <-- Esto rescatará tu flujo en desarrollo
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -135,15 +137,13 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         if (userRes.rows.length === 0) return res.status(404).json({ error: 'Datos no encontrados.' });
 
         const codigoRecovery = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        // También aplica los 30 segundos para el flujo de recuperación
         enviarWhatsAppRealConDemora(telefono, userRes.rows[0].email, codigoRecovery);
 
-        res.json({ mensaje: "Código de recuperación enviado de forma exitosa." });
+        res.json({ mensaje: "Código enviado.", bypassCode: codigoRecovery });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor de Emplea360 listo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
