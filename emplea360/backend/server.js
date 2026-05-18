@@ -3,7 +3,6 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
-const nodemailer = require('nodemailer'); // <-- Para envíos de correos reales
 
 const app = express();
 
@@ -17,21 +16,36 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Configuración de correo saliente (Usa variables de entorno o credenciales directas de Gmail/Outlook)
-// Para que funcione real, en Railway deberás agregar las variables SMTP_USER y SMTP_PASS
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.SMTP_USER || 'tu_correo_de_pruebas@gmail.com', 
-        pass: process.env.SMTP_PASS || 'tu_contraseña_de_aplicacion'
-    }
-});
-
 const codigosVerificacion = new Map();
 
-// --- ENDPOINTS AUTENTICACIÓN ---
+// --- CONFIGURACIÓN DEL NÚMERO DE WHATSAPP ---
+const NUMERO_ADMIN = "542644514587"; // Tu número sin el + ni el 9, formato internacional limpio
 
-// 1. Registro con Generación de Códigos Integrado
+// Función para enviar la notificación
+async function notificarRegistroWhatsApp(nombreUsuario, telefonoUsuario, codigo) {
+    try {
+        console.log(`\n==============================================`);
+        console.log(`📱 [WHATSAPP OUTBOUND]`);
+        console.log(`Destinatario: ${nombreUsuario} (${telefonoUsuario})`);
+        console.log(`Mensaje: Tu código de verificación para Emplea 360 es: ${codigo}`);
+        console.log(`==============================================\n`);
+        
+        // Aquí dejamos lista la llamada fetch en caso de que acoples un proveedor de mensajería (ej. UltraMsg, Wassame, ManyChat)
+        /*
+        await fetch(`https://api.tu-proveedor.com/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: 'tu_token', to: NUMERO_ADMIN, body: `Código: ${codigo}` })
+        });
+        */
+    } catch (e) {
+        console.error("Error al despachar el paquete de WhatsApp:", e.message);
+    }
+}
+
+// --- ENDPOINTS ---
+
+// 1. Registro
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
     try {
@@ -48,39 +62,21 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        // Enlace automatizado para WhatsApp que abre el chat del usuario con su código listo para enviarse
-        const mensajeWhatsApp = encodeURIComponent(`Hola ${nombre}, tu código de activación para Emplea 360 es: ${codigo}`);
-        const linkWhatsApp = `https://wa.me/${telefono.replace('+', '')}?text=${mensajeWhatsApp}`;
+        // Dispara la acción hacia tu número configurado
+        await notificarRegistroWhatsApp(nombre, telefono, codigo);
 
-        // Intentar envío de correo real (Failsafe)
-        try {
-            await transporter.sendMail({
-                from: '"Emplea 360" <no-reply@emplea360.com>',
-                to: email,
-                subject: "Tu código de verificación - Emplea 360",
-                text: `Hola ${nombre}, tu código de verificación es: ${codigo}`
-            });
-            console.log(`[Email] Código enviado con éxito a ${email}`);
-        } catch (mailErr) {
-            console.log("[Email simulado en consola] Código:", codigo);
-        }
-
-        // Devolvemos el link de WhatsApp al Frontend por si quiere auto-enviárselo
-        res.status(200).json({ 
-            mensaje: "Código generado con éxito.", 
-            whatsappLink: linkWhatsApp 
-        });
+        res.status(200).json({ mensaje: "Código enviado con éxito." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. Verificar Cuenta Creada
+// 2. Verificar Registro
 app.post('/api/auth/verify-register', async (req, res) => {
     const { email, code } = req.body;
     try {
         const datosTemporales = codigosVerificacion.get(email);
-        if (!datosTemporales) return res.status(400).json({ error: 'Registro expirado o inexistente.' });
+        if (!datosTemporales) return res.status(400).json({ error: 'El código expiró o no existe.' });
         if (datosTemporales.codigo !== code) return res.status(400).json({ error: 'Código incorrecto.' });
 
         const nuevoUsuario = await pool.query(
@@ -102,7 +98,7 @@ app.post('/api/auth/verify-register', async (req, res) => {
     }
 });
 
-// 3. Login Dual (Email o Teléfono)
+// 3. Login Dual
 app.post('/api/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     try {
@@ -120,21 +116,23 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// 4. Solicitar Recuperación de Contraseña
+// 4. Olvidé mi contraseña
 app.post('/api/auth/forgot-password', async (req, res) => {
     const { email, telefono } = req.body;
     try {
         const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1 AND telefono = $2', [email, telefono]);
-        if (userRes.rows.length === 0) return res.status(404).json({ error: 'Datos incorrectos.' });
+        if (userRes.rows.length === 0) return res.status(404).json({ error: 'Datos no encontrados.' });
 
         const codigoRecovery = Math.floor(100000 + Math.random() * 900000).toString();
-        console.log(`[RECOVERY CODE]: ${codigoRecovery}`);
+        
+        await notificarRegistroWhatsApp(userRes.rows[0].email, telefono, codigoRecovery);
 
-        res.json({ mensaje: "Código de recuperación despachado." });
+        res.json({ mensaje: "Código de recuperación enviado." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+// --- PUERTO ADAPTADO A RAILWAY (EVITA CRASH) ---
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Servidor Emplea360 corriendo en puerto ${PORT}`));
