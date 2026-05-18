@@ -18,34 +18,43 @@ const pool = new Pool({
 
 const codigosVerificacion = new Map();
 
-// --- CONFIGURACIÓN DEL NÚMERO DE WHATSAPP ---
-const NUMERO_ADMIN = "542644514587"; // Tu número sin el + ni el 9, formato internacional limpio
+// --- CONFIGURACIÓN DEL PROVEEDOR EXTERNO ---
+const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || 'https://api.ultramsg.com/instance12345/messages/chat'; 
+const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || 'tu_token_aqui';
 
-// Función para enviar la notificación
-async function notificarRegistroWhatsApp(nombreUsuario, telefonoUsuario, codigo) {
+// Función para crear una pausa artificial de tiempo
+const esperarSegundos = (segundos) => new Promise(resolve => setTimeout(resolve, segundos * 1000));
+
+async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
+    const numeroDestino = telefonoUsuario.replace('+', '').trim();
+    const mensaje = `Hola ${nombreUsuario}, tu código de verificación para entrar a Emplea 360 es: *${codigo}*`;
+
     try {
-        console.log(`\n==============================================`);
-        console.log(`📱 [WHATSAPP OUTBOUND]`);
-        console.log(`Destinatario: ${nombreUsuario} (${telefonoUsuario})`);
-        console.log(`Mensaje: Tu código de verificación para Emplea 360 es: ${codigo}`);
-        console.log(`==============================================\n`);
+        console.log(`⏱️ Iniciando temporizador: El mensaje para ${nombreUsuario} se enviará en 30 segundos...`);
         
-        // Aquí dejamos lista la llamada fetch en caso de que acoples un proveedor de mensajería (ej. UltraMsg, Wassame, ManyChat)
-        /*
-        await fetch(`https://api.tu-proveedor.com/sendMessage`, {
+        // 🚨 AQUÍ SE APLICA LA DEMORA DE 30 SEGUNDOS MANDATORIA
+        await esperarSegundos(30);
+
+        // Hacemos el envío externo real una vez cumplido el tiempo
+        const response = await fetch(WHATSAPP_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: 'tu_token', to: NUMERO_ADMIN, body: `Código: ${codigo}` })
+            body: JSON.stringify({
+                token: WHATSAPP_API_TOKEN,
+                to: numeroDestino,
+                body: mensaje
+            })
         });
-        */
-    } catch (e) {
-        console.error("Error al despachar el paquete de WhatsApp:", e.message);
+
+        const resultado = await response.json().catch(() => ({}));
+        console.log(`🚀 [WhatsApp Despachado tras 30s]`, resultado);
+    } catch (error) {
+        console.error("No se pudo despachar el WhatsApp tras la espera:", error.message);
     }
 }
 
 // --- ENDPOINTS ---
 
-// 1. Registro
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
     try {
@@ -62,16 +71,20 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        // Dispara la acción hacia tu número configurado
-        await notificarRegistroWhatsApp(nombre, telefono, codigo);
+        // 🚨 LLAMAMOS A LA FUNCIÓN CON LA DEMORA INCORPORADA
+        // Nota: No usamos 'await' aquí para que la API le responda rápido al frontend ("Código enviado") 
+        // y el backend se quede esperando los 30 segundos en segundo plano sin colgar la página web.
+        enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
-        res.status(200).json({ mensaje: "Código enviado con éxito." });
+        // Respaldo inmediato en la consola por si necesitás revisar
+        console.log(`\n[LOG INTERNO] Código generado para ${email}: ${codigo} (A la espera de los 30s para impactar)\n`);
+
+        res.status(200).json({ mensaje: "Código despachado con éxito. Llegará en unos instantes." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. Verificar Registro
 app.post('/api/auth/verify-register', async (req, res) => {
     const { email, code } = req.body;
     try {
@@ -98,7 +111,6 @@ app.post('/api/auth/verify-register', async (req, res) => {
     }
 });
 
-// 3. Login Dual
 app.post('/api/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     try {
@@ -116,7 +128,6 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// 4. Olvidé mi contraseña
 app.post('/api/auth/forgot-password', async (req, res) => {
     const { email, telefono } = req.body;
     try {
@@ -125,14 +136,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
         const codigoRecovery = Math.floor(100000 + Math.random() * 900000).toString();
         
-        await notificarRegistroWhatsApp(userRes.rows[0].email, telefono, codigoRecovery);
+        // También aplica los 30 segundos para el flujo de recuperación
+        enviarWhatsAppRealConDemora(telefono, userRes.rows[0].email, codigoRecovery);
 
-        res.json({ mensaje: "Código de recuperación enviado." });
+        res.json({ mensaje: "Código de recuperación enviado de forma exitosa." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- PUERTO ADAPTADO A RAILWAY (EVITA CRASH) ---
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor Emplea360 corriendo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor de Emplea360 listo en puerto ${PORT}`));
