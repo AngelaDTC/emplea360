@@ -19,6 +19,77 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
+// Configuración de PostgreSQL para Railway
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
+
+// --- INYECCIÓN AUTOMÁTICA DE TABLAS (SCRIPT AUTO-EJECUTABLE) ---
+const inicializarBaseDeDatos = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                telefono VARCHAR(50),
+                rol VARCHAR(20) CHECK (rol IN ('candidato', 'empresa')) NOT NULL,
+                is_email_verified BOOLEAN DEFAULT TRUE,
+                is_whatsapp_verified BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS candidatos (
+                id SERIAL PRIMARY KEY,
+                usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
+                nombre_completo VARCHAR(255) NOT NULL,
+                habilidades TEXT[] DEFAULT '{}',
+                experiencia_anios INT DEFAULT 0,
+                cv_optimizado_ats TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS empresas (
+                id SERIAL PRIMARY KEY,
+                usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
+                nombre_empresa VARCHAR(255) NOT NULL,
+                cuit VARCHAR(50)
+            );
+
+            CREATE TABLE IF NOT EXISTS vacantes (
+                id SERIAL PRIMARY KEY,
+                empresa_id INT REFERENCES empresas(id) ON DELETE CASCADE,
+                titulo VARCHAR(255) NOT NULL,
+                descripcion TEXT,
+                habilidades_requeridas TEXT[] DEFAULT '{}',
+                experiencia_minima INT DEFAULT 0,
+                activa BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS progreso_academia (
+                id SERIAL PRIMARY KEY,
+                candidato_id INT REFERENCES candidatos(id) ON DELETE CASCADE,
+                nombre_curso VARCHAR(255) NOT NULL,
+                completado BOOLEAN DEFAULT FALSE,
+                nota_evaluacion INT DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS postulaciones (
+                id SERIAL PRIMARY KEY,
+                vacante_id INT REFERENCES vacantes(id) ON DELETE CASCADE,
+                candidato_id INT REFERENCES candidatos(id) ON DELETE CASCADE,
+                estado VARCHAR(50) DEFAULT 'postulado' CHECK (estado IN ('postulado', 'en_revision', 'contratado', 'rechazado')),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("[PostgreSQL] Todas las tablas verificadas/creadas con éxito.");
+    } catch (err) {
+        console.error("[PostgreSQL Error] No se pudieron crear las tablas:", err.message);
+    }
+};
+inicializarBaseDeDatos();
+
 // --- MIDDLEWARE DE AUTENTICACIÓN ---
 const verificarToken = (req, res, next) => {
     const token = req.headers['authorization'];
