@@ -8,7 +8,7 @@ const { Pool } = require('pg');
 const app = express();
 
 // --- MIDDLEWARES GLOBALES ---
-app.use(cors()); // Esto permite que Vercel se conecte a Railway sin bloqueos de seguridad
+app.use(cors());
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'emplea360_super_secret_key_2026';
@@ -19,15 +19,12 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Configuración de PostgreSQL para Railway
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
-
-// --- INYECCIÓN AUTOMÁTICA DE TABLAS (SCRIPT AUTO-EJECUTABLE) ---
+// --- SCRIPT DE CREACIÓN DE TABLAS SEGURO ---
 const inicializarBaseDeDatos = async () => {
     try {
+        console.log("[PostgreSQL] Verificando y creando tablas de manera segura...");
+        
+        // Creamos las tablas una a una para evitar bloqueos de sintaxis en hilos
         await pool.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -39,7 +36,9 @@ const inicializarBaseDeDatos = async () => {
                 is_whatsapp_verified BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+        `);
 
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS candidatos (
                 id SERIAL PRIMARY KEY,
                 usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -48,14 +47,18 @@ const inicializarBaseDeDatos = async () => {
                 experiencia_anios INT DEFAULT 0,
                 cv_optimizado_ats TEXT
             );
+        `);
 
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS empresas (
                 id SERIAL PRIMARY KEY,
                 usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
                 nombre_empresa VARCHAR(255) NOT NULL,
                 cuit VARCHAR(50)
             );
+        `);
 
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS vacantes (
                 id SERIAL PRIMARY KEY,
                 empresa_id INT REFERENCES empresas(id) ON DELETE CASCADE,
@@ -66,7 +69,9 @@ const inicializarBaseDeDatos = async () => {
                 activa BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+        `);
 
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS progreso_academia (
                 id SERIAL PRIMARY KEY,
                 candidato_id INT REFERENCES candidatos(id) ON DELETE CASCADE,
@@ -74,7 +79,9 @@ const inicializarBaseDeDatos = async () => {
                 completado BOOLEAN DEFAULT FALSE,
                 nota_evaluacion INT DEFAULT 0
             );
+        `);
 
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS postulaciones (
                 id SERIAL PRIMARY KEY,
                 vacante_id INT REFERENCES vacantes(id) ON DELETE CASCADE,
@@ -83,11 +90,15 @@ const inicializarBaseDeDatos = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        console.log("[PostgreSQL] Todas las tablas verificadas/creadas con éxito.");
+
+        console.log("[PostgreSQL] ¡Estructura de tablas validada con éxito!");
     } catch (err) {
-        console.error("[PostgreSQL Error] No se pudieron crear las tablas:", err.message);
+        console.error("[PostgreSQL Error detectado]:", err.message);
+        // Evitamos que tire el servidor abajo (CRASH) si la base de datos tarda en responder
     }
 };
+
+// Ejecutar inicialización de tablas
 inicializarBaseDeDatos();
 
 // --- MIDDLEWARE DE AUTENTICACIÓN ---
@@ -104,20 +115,16 @@ const verificarToken = (req, res, next) => {
 };
 
 // --- ALGORITMO MATEMÁTICO DE MATCHING ---
-// Fórmula: Match = (Habilidades * 0.4) + (Experiencia * 0.3) + (Cursos * 0.2) + (Evaluaciones * 0.1)
 function calcularCompatibilidad(candidato, vacante) {
-    // 1. Habilidades (40%)
     const habMatch = vacante.habilidades_requeridas.filter(h => candidato.habilidades.includes(h));
     const pctHabilidades = vacante.habilidades_requeridas.length > 0 
         ? (habMatch.length / vacante.habilidades_requeridas.length) * 40 
         : 40;
 
-    // 2. Experiencia (30%)
     const pctExperiencia = candidato.experiencia_anios >= vacante.experiencia_minima 
         ? 30 
         : (candidato.experiencia_anios / vacante.experiencia_minima) * 30;
 
-    // 3. Cursos (20%) y Evaluaciones (10%) obtenidos de la academia externa
     const pctCursos = candidato.cursos_completados_count > 0 ? 20 : 0;
     const pctEvaluaciones = (candidato.promedio_evaluaciones / 100) * 10;
 
@@ -126,7 +133,7 @@ function calcularCompatibilidad(candidato, vacante) {
 
 // --- ENDPOINTS ---
 
-// Registro con validación simulada de Canales (Mail/WhatsApp)
+// Registro
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
     try {
@@ -167,13 +174,12 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Carga, Optimización ATS automática y Autocompletado de Perfil
+// Optimización ATS
 app.post('/api/candidato/cv-upload', verificarToken, async (req, res) => {
     try {
-        // Simulación de Parser ATS e Inteligencia de Mejora de CV
         const habilidadesExtraidas = ['Ventas B2B', 'Negociación', 'CRM Salesforce', 'Cierre de Ventas'];
         const experienciaExtraida = 3; 
-        const cvMejoradoTexto = "Perfil Comercial Optimizado para ATS: Experto en ventas B2B orientado a objetivos en San Juan...";
+        const cvMejoradoTexto = "Perfil Comercial Optimizado para ATS: Experto en ventas B2B...";
 
         await pool.query(
             `UPDATE candidatos SET habilidades = $1, experiencia_anios = $2, cv_optimizado_ats = $3 WHERE usuario_id = $4`,
@@ -181,7 +187,7 @@ app.post('/api/candidato/cv-upload', verificarToken, async (req, res) => {
         );
 
         res.json({ 
-            mensaje: "CV Procesado por el optimizador ATS. Perfil actualizado automáticamente.",
+            mensaje: "CV Procesado por el optimizador ATS.",
             habilidades: habilidadesExtraidas,
             experience: experienciaExtraida
         });
@@ -190,7 +196,7 @@ app.post('/api/candidato/cv-upload', verificarToken, async (req, res) => {
     }
 });
 
-// Obtener Vacantes con Porcentaje de Compatibilidad Dinámica
+// Obtener Vacantes
 app.get('/api/candidato/vacantes', verificarToken, async (req, res) => {
     try {
         const candRes = await pool.query(`
@@ -207,16 +213,14 @@ app.get('/api/candidato/vacantes', verificarToken, async (req, res) => {
             return { ...vacante, porcentaje_compatibilidad: porcentaje };
         });
 
-        // Ordenar de mayor a menor compatibilidad
         vacantesConMatch.sort((a, b) => b.porcentaje_compatibilidad - a.porcentaje_compatibilidad);
-
         res.json(vacantesConMatch);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Listado ATS de la Empresa (Ordenados por mejor calificados)
+// Listado ATS Empresa
 app.get('/api/empresa/candidatos-ats/:vacanteId', verificarToken, async (req, res) => {
     const { vacanteId } = req.params;
     try {
@@ -235,32 +239,24 @@ app.get('/api/empresa/candidatos-ats/:vacanteId', verificarToken, async (req, re
             return { ...cand, porcentaje_compatibilidad: porcentaje };
         });
 
-        // Filtro ATS e Inteligente: Primero los de mayor compatibilidad
         postulantesEvaluados.sort((a, b) => b.porcentaje_compatibilidad - a.porcentaje_compatibilidad);
-
         res.json(postulantesEvaluados);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Contratación del candidato: Vencimiento automático y eliminación de la postulación activa
+// Contratación
 app.post('/api/postulaciones/:id/contratar', verificarToken, async (req, res) => {
     const { id } = req.params;
     try {
         const postRes = await pool.query('SELECT * FROM postulaciones WHERE id = $1', [id]);
         const postulacion = postRes.rows[0];
 
-        // Cambiar estado a contratado
         await pool.query('UPDATE postulaciones SET estado = $1 WHERE id = $2', ['contratado', id]);
-        
-        // Simulación Envío de Alerta WhatsApp a través de Webhook/API Externa
-        console.log(`[WhatsApp Alerta] Notificación enviada al candidato sobre contratación.`);
-
-        // Lógica de Vencimiento: Se desactiva la vacante para que no reciba más postulantes
         await pool.query('UPDATE vacantes SET activa = false WHERE id = $1', [postulacion.vacante_id]);
 
-        res.json({ mensaje: "Candidato contratado. Vacante cerrada y archivada automáticamente por el sistema." });
+        res.json({ mensaje: "Candidato contratado. Vacante cerrada automáticamente." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
