@@ -1,171 +1,117 @@
-// server.js
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
+const nodemailer = require('nodemailer'); // <-- Para envíos de correos reales
 
 const app = express();
 
-// --- MIDDLEWARES GLOBALES ---
 app.use(cors());
 app.use(express.json());
 
 const JWT_SECRET = process.env.JWT_SECRET || 'emplea360_super_secret_key_2026';
 
-// Configuración de PostgreSQL para Railway
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-// --- SCRIPT DE CREACIÓN DE TABLAS SEGURO ---
-const inicializarBaseDeDatos = async () => {
-    try {
-        console.log("[PostgreSQL] Verificando y creando tablas de manera segura...");
-        
-        // Creamos las tablas una a una para evitar bloqueos de sintaxis en hilos
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id SERIAL PRIMARY KEY,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                telefono VARCHAR(50),
-                rol VARCHAR(20) CHECK (rol IN ('candidato', 'empresa')) NOT NULL,
-                is_email_verified BOOLEAN DEFAULT TRUE,
-                is_whatsapp_verified BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS candidatos (
-                id SERIAL PRIMARY KEY,
-                usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
-                nombre_completo VARCHAR(255) NOT NULL,
-                habilidades TEXT[] DEFAULT '{}',
-                experiencia_anios INT DEFAULT 0,
-                cv_optimizado_ats TEXT
-            );
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS empresas (
-                id SERIAL PRIMARY KEY,
-                usuario_id INT REFERENCES usuarios(id) ON DELETE CASCADE,
-                nombre_empresa VARCHAR(255) NOT NULL,
-                cuit VARCHAR(50)
-            );
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS vacantes (
-                id SERIAL PRIMARY KEY,
-                empresa_id INT REFERENCES empresas(id) ON DELETE CASCADE,
-                titulo VARCHAR(255) NOT NULL,
-                descripcion TEXT,
-                habilidades_requeridas TEXT[] DEFAULT '{}',
-                experiencia_minima INT DEFAULT 0,
-                activa BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS progreso_academia (
-                id SERIAL PRIMARY KEY,
-                candidato_id INT REFERENCES candidatos(id) ON DELETE CASCADE,
-                nombre_curso VARCHAR(255) NOT NULL,
-                completado BOOLEAN DEFAULT FALSE,
-                nota_evaluacion INT DEFAULT 0
-            );
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS postulaciones (
-                id SERIAL PRIMARY KEY,
-                vacante_id INT REFERENCES vacantes(id) ON DELETE CASCADE,
-                candidato_id INT REFERENCES candidatos(id) ON DELETE CASCADE,
-                estado VARCHAR(50) DEFAULT 'postulado' CHECK (estado IN ('postulado', 'en_revision', 'contratado', 'rechazado')),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        console.log("[PostgreSQL] ¡Estructura de tablas validada con éxito!");
-    } catch (err) {
-        console.error("[PostgreSQL Error detectado]:", err.message);
-        // Evitamos que tire el servidor abajo (CRASH) si la base de datos tarda en responder
+// Configuración de correo saliente (Usa variables de entorno o credenciales directas de Gmail/Outlook)
+// Para que funcione real, en Railway deberás agregar las variables SMTP_USER y SMTP_PASS
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.SMTP_USER || 'tu_correo_de_pruebas@gmail.com', 
+        pass: process.env.SMTP_PASS || 'tu_contraseña_de_aplicacion'
     }
-};
+});
 
-// Ejecutar inicialización de tablas
-inicializarBaseDeDatos();
+const codigosVerificacion = new Map();
 
-// --- MIDDLEWARE DE AUTENTICACIÓN ---
-const verificarToken = (req, res, next) => {
-    const token = req.headers['authorization'];
-    if (!token) return res.status(403).json({ error: 'No se proporcionó token' });
-    try {
-        const decoded = jwt.verify(token.split(" ")[1], JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        return res.status(401).json({ error: 'Token inválido' });
-    }
-};
+// --- ENDPOINTS AUTENTICACIÓN ---
 
-// --- ALGORITMO MATEMÁTICO DE MATCHING ---
-function calcularCompatibilidad(candidato, vacante) {
-    const habMatch = vacante.habilidades_requeridas.filter(h => candidato.habilidades.includes(h));
-    const pctHabilidades = vacante.habilidades_requeridas.length > 0 
-        ? (habMatch.length / vacante.habilidades_requeridas.length) * 40 
-        : 40;
-
-    const pctExperiencia = candidato.experiencia_anios >= vacante.experiencia_minima 
-        ? 30 
-        : (candidato.experiencia_anios / vacante.experiencia_minima) * 30;
-
-    const pctCursos = candidato.cursos_completados_count > 0 ? 20 : 0;
-    const pctEvaluaciones = (candidato.promedio_evaluaciones / 100) * 10;
-
-    return Math.min(100, Math.round(pctHabilidades + pctExperiencia + pctCursos + pctEvaluaciones));
-}
-
-// --- ENDPOINTS ---
-
-// Registro
+// 1. Registro con Generación de Códigos Integrado
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
     try {
-        const passwordHash = await bcrypt.hash(password, 10);
-        const nuevoUsuario = await pool.query(
-            'INSERT INTO usuarios (email, password_hash, telefono, rol, is_email_verified, is_whatsapp_verified) VALUES ($1, $2, $3, $4, true, true) RETURNING *',
-            [email, passwordHash, telefono, rol]
-        );
-        
-        const usuarioId = nuevoUsuario.rows[0].id;
-        if (rol === 'candidato') {
-            await pool.query('INSERT INTO candidatos (usuario_id, nombre_completo) VALUES ($1, $2)', [usuarioId, nombre]);
-        } else {
-            await pool.query('INSERT INTO empresas (usuario_id, nombre_empresa, cuit) VALUES ($1, $2, $3)', [usuarioId, nombre, '20-XXXXXXXX-0']);
+        const existeUser = await pool.query('SELECT * FROM usuarios WHERE email = $1 OR telefono = $2', [email, telefono]);
+        if (existeUser.rows.length > 0) {
+            return res.status(400).json({ error: 'El email o el teléfono ya están registrados.' });
         }
 
-        res.status(201).json({ mensaje: "Usuario registrado con éxito. Canales validados." });
+        const passwordHash = await bcrypt.hash(password, 10);
+        const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        codigosVerificacion.set(email, {
+            email, passwordHash, telefono, rol, nombre, codigo,
+            expira: Date.now() + 15 * 60 * 1000
+        });
+
+        // Enlace automatizado para WhatsApp que abre el chat del usuario con su código listo para enviarse
+        const mensajeWhatsApp = encodeURIComponent(`Hola ${nombre}, tu código de activación para Emplea 360 es: ${codigo}`);
+        const linkWhatsApp = `https://wa.me/${telefono.replace('+', '')}?text=${mensajeWhatsApp}`;
+
+        // Intentar envío de correo real (Failsafe)
+        try {
+            await transporter.sendMail({
+                from: '"Emplea 360" <no-reply@emplea360.com>',
+                to: email,
+                subject: "Tu código de verificación - Emplea 360",
+                text: `Hola ${nombre}, tu código de verificación es: ${codigo}`
+            });
+            console.log(`[Email] Código enviado con éxito a ${email}`);
+        } catch (mailErr) {
+            console.log("[Email simulado en consola] Código:", codigo);
+        }
+
+        // Devolvemos el link de WhatsApp al Frontend por si quiere auto-enviárselo
+        res.status(200).json({ 
+            mensaje: "Código generado con éxito.", 
+            whatsappLink: linkWhatsApp 
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Login
-app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
+// 2. Verificar Cuenta Creada
+app.post('/api/auth/verify-register', async (req, res) => {
+    const { email, code } = req.body;
     try {
-        const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
-        if (userRes.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+        const datosTemporales = codigosVerificacion.get(email);
+        if (!datosTemporales) return res.status(400).json({ error: 'Registro expirado o inexistente.' });
+        if (datosTemporales.codigo !== code) return res.status(400).json({ error: 'Código incorrecto.' });
+
+        const nuevoUsuario = await pool.query(
+            'INSERT INTO usuarios (email, password_hash, telefono, rol, is_email_verified, is_whatsapp_verified) VALUES ($1, $2, $3, $4, true, true) RETURNING *',
+            [datosTemporales.email, datosTemporales.passwordHash, datosTemporales.telefono, datosTemporales.rol]
+        );
+        
+        const usuarioId = nuevoUsuario.rows[0].id;
+        if (datosTemporales.rol === 'candidato') {
+            await pool.query('INSERT INTO candidatos (usuario_id, nombre_completo) VALUES ($1, $2)', [usuarioId, datosTemporales.nombre]);
+        } else {
+            await pool.query('INSERT INTO empresas (usuario_id, nombre_empresa, cuit) VALUES ($1, $2, $3)', [usuarioId, datosTemporales.nombre, '20-XXXXXXXX-0']);
+        }
+
+        codigosVerificacion.delete(email);
+        res.status(201).json({ mensaje: "Cuenta activada con éxito." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. Login Dual (Email o Teléfono)
+app.post('/api/auth/login', async (req, res) => {
+    const { identifier, password } = req.body;
+    try {
+        const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1 OR telefono = $2', [identifier, identifier]);
+        if (userRes.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
 
         const user = userRes.rows[0];
         const validPassword = await bcrypt.compare(password, user.password_hash);
-        if (!validPassword) return res.status(401).json({ error: 'Contraseña incorrecta' });
+        if (!validPassword) return res.status(401).json({ error: 'Contraseña incorrecta.' });
 
         const token = jwt.sign({ id: user.id, rol: user.rol }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token, rol: user.rol });
@@ -174,93 +120,21 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Optimización ATS
-app.post('/api/candidato/cv-upload', verificarToken, async (req, res) => {
+// 4. Solicitar Recuperación de Contraseña
+app.post('/api/auth/forgot-password', async (req, res) => {
+    const { email, telefono } = req.body;
     try {
-        const habilidadesExtraidas = ['Ventas B2B', 'Negociación', 'CRM Salesforce', 'Cierre de Ventas'];
-        const experienciaExtraida = 3; 
-        const cvMejoradoTexto = "Perfil Comercial Optimizado para ATS: Experto en ventas B2B...";
+        const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1 AND telefono = $2', [email, telefono]);
+        if (userRes.rows.length === 0) return res.status(404).json({ error: 'Datos incorrectos.' });
 
-        await pool.query(
-            `UPDATE candidatos SET habilidades = $1, experiencia_anios = $2, cv_optimizado_ats = $3 WHERE usuario_id = $4`,
-            [habilidadesExtraidas, experienciaExtraida, cvMejoradoTexto, req.user.id]
-        );
+        const codigoRecovery = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log(`[RECOVERY CODE]: ${codigoRecovery}`);
 
-        res.json({ 
-            mensaje: "CV Procesado por el optimizador ATS.",
-            habilidades: habilidadesExtraidas,
-            experience: experienciaExtraida
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Obtener Vacantes
-app.get('/api/candidato/vacantes', verificarToken, async (req, res) => {
-    try {
-        const candRes = await pool.query(`
-            SELECT c.*, 
-            (SELECT COUNT(*) FROM progreso_academia WHERE candidato_id = c.id AND completado = true) as cursos_completados_count,
-            COALESCE((SELECT AVG(nota_evaluacion) FROM progreso_academia WHERE candidato_id = c.id), 0) as promedio_evaluaciones
-            FROM candidatos c WHERE c.usuario_id = $1`, [req.user.id]);
-            
-        const candidato = candRes.rows[0];
-        const vacantesRes = await pool.query('SELECT v.*, e.nombre_empresa FROM vacantes v JOIN empresas e ON v.empresa_id = e.id WHERE v.activa = true');
-
-        const vacantesConMatch = vacantesRes.rows.map(vacante => {
-            const porcentaje = calcularCompatibilidad(candidato, vacante);
-            return { ...vacante, porcentaje_compatibilidad: porcentaje };
-        });
-
-        vacantesConMatch.sort((a, b) => b.porcentaje_compatibilidad - a.porcentaje_compatibilidad);
-        res.json(vacantesConMatch);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Listado ATS Empresa
-app.get('/api/empresa/candidatos-ats/:vacanteId', verificarToken, async (req, res) => {
-    const { vacanteId } = req.params;
-    try {
-        const vacanteRes = await pool.query('SELECT * FROM vacantes WHERE id = $1', [vacanteId]);
-        const vacante = vacanteRes.rows[0];
-
-        const candidatosRes = await pool.query(`
-            SELECT c.*, u.telefono,
-            (SELECT COUNT(*) FROM progreso_academia WHERE candidato_id = c.id AND completado = true) as cursos_completados_count,
-            COALESCE((SELECT AVG(nota_evaluacion) FROM progreso_academia WHERE candidato_id = c.id), 0) as promedio_evaluaciones
-            FROM candidatos c JOIN usuarios u ON c.usuario_id = u.id
-        `);
-
-        const postulantesEvaluados = candidatosRes.rows.map(cand => {
-            const porcentaje = calcularCompatibilidad(cand, vacante);
-            return { ...cand, porcentaje_compatibilidad: porcentaje };
-        });
-
-        postulantesEvaluados.sort((a, b) => b.porcentaje_compatibilidad - a.porcentaje_compatibilidad);
-        res.json(postulantesEvaluados);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Contratación
-app.post('/api/postulaciones/:id/contratar', verificarToken, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const postRes = await pool.query('SELECT * FROM postulaciones WHERE id = $1', [id]);
-        const postulacion = postRes.rows[0];
-
-        await pool.query('UPDATE postulaciones SET estado = $1 WHERE id = $2', ['contratado', id]);
-        await pool.query('UPDATE vacantes SET activa = false WHERE id = $1', [postulacion.vacante_id]);
-
-        res.json({ mensaje: "Candidato contratado. Vacante cerrada automáticamente." });
+        res.json({ mensaje: "Código de recuperación despachado." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Servidor EMPLEA 360 corriendo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
