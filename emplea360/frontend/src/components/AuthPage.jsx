@@ -21,20 +21,9 @@ export default function AuthPage({ onLogin, apiUrl }) {
     e.preventDefault();
     setError('');
     
-    // 1. Validamos y normalizamos la URL para que siempre apunte correctamente a las rutas del backend
-    let baseEndpoint = apiUrl || '';
-    if (baseEndpoint.endsWith('/')) {
-      baseEndpoint = baseEndpoint.slice(0, -1);
-    }
-    
-    // Si la URL pasada por props no incluye el prefijo obligatorio /api, se lo sumamos automáticamente
-    if (!baseEndpoint.includes('/api')) {
-      baseEndpoint = `${baseEndpoint}/api`;
-    }
-
-    // --- CORRECCIÓN DE RUTAS COORDINADAS CON EL BACKEND ---
-    const endpoint = isLogin ? '/auth/login' : '/auth/register';
-    const finalUrl = `${baseEndpoint}${endpoint}`;
+    // --- CONEXIÓN INMUTABLE AL BACKEND REAL EN RAILWAY ---
+    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    const finalUrl = `https://emplea360-production-517a.up.railway.app${endpoint}`;
 
     try {
       const response = await fetch(finalUrl, {
@@ -43,14 +32,14 @@ export default function AuthPage({ onLogin, apiUrl }) {
         body: JSON.stringify(formData),
       });
       
-      // 2. Controlamos las respuestas caídas o errores HTML antes de intentar decodificar el JSON
+      // Controlamos las respuestas caídas o errores HTML antes de intentar decodificar el JSON
       if (!response.ok) {
-        let errorMessage = 'Error en la URL del servidor o ruta inexistente.';
+        let errorMessage = `Error en el servidor (Código ${response.status}).`;
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
         } catch (jsonErr) {
-          // Si no es un JSON válido (por ejemplo, devolvió un HTML de error de Railway), usamos el mensaje por defecto
+          // Si no es un JSON válido, mantiene el mensaje genérico con el código de estado HTTP
         }
         throw new Error(errorMessage);
       }
