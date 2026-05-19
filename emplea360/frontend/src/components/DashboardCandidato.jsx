@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 export default function DashboardCandidato() {
   const navigate = useNavigate();
 
+  // URL base de tu backend en Railway (Centralizada para evitar errores)
+  const URL_BACKEND = 'https://emplea360-production.up.railway.app'; 
+
   // ==========================================
   // 💾 1. DECLARACIÓN DE TODOS TUS ESTADOS
   // ==========================================
@@ -12,7 +15,7 @@ export default function DashboardCandidato() {
   const [previewFoto, setPreviewFoto] = useState(null);
   const [atsScore, setAtsScore] = useState(null);
   
-  // 🔥 NUEVO ESTADO: Guarda el nombre con el que se registró el usuario
+  // Estado para el nombre del usuario (Se actualizará de forma real con la BD)
   const [nombreUsuario, setNombreUsuario] = useState('Candidato');
 
   const [perfilCandidato, setPerfilCandidato] = useState('');
@@ -40,42 +43,56 @@ export default function DashboardCandidato() {
   const diasMes = Array.from({ length: 31 }, (_, i) => i + 1);
 
   // ==========================================
-  // 🔑 EXTRAER EL NOMBRE DEL REGISTRO AUTOMÁTICAMENTE
+  // 🔑 2. CARGAR PERFIL DE LA BASE DE DATOS (TRAE EL NOMBRE REAL)
   // ==========================================
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    const cargarPerfilDesdeBD = async () => {
       try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const datosDecodificados = JSON.parse(window.atob(base64));
-        
-        console.log("🔍 Datos reales dentro de tu token:", datosDecodificados);
+        const token = localStorage.getItem('token');
+        if (!token) return;
 
-        if (datosDecodificados.nombre) {
-          setNombreUsuario(datosDecodificados.nombre);
-        } else if (datosDecodificados.nombre_completo) {
-          setNombreUsuario(datosDecodificados.nombre_completo);
-        } else if (datosDecodificados.username) {
-          setNombreUsuario(datosDecodificados.username);
-        } else if (datosDecodificados.email) {
-          setNombreUsuario(datosDecodificados.email.split('@')[0]);
+        const respuesta = await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (respuesta.ok) {
+          const datos = await respuesta.json();
+          console.log("🔒 Perfil recuperado de PostgreSQL:", datos);
+          
+          // Si la base de datos trae el nombre del candidato, lo asignamos inmediatamente
+          if (datos.nombre_completo) {
+            setNombreUsuario(datos.nombre_completo);
+          }
+          
+          // Cargamos el resto de las estructuras si existen en la BD
+          if (datos.perfil_candidato) setPerfilCandidato(datos.perfil_candidato);
+          if (datos.carta_presentacion) setCartaPresentacion(datos.carta_presentacion);
+          if (datos.habilidades) setHabilidades(JSON.parse(datos.habilidades));
+          if (datos.estudios) setEstudios(JSON.parse(datos.estudios));
+          if (datos.experiencias) setExperiencias(JSON.parse(datos.experiencias));
+          if (datos.capacitaciones) setCapacitaciones(JSON.parse(datos.capacitaciones));
+          if (datos.conocimientos) setConocimientos(JSON.parse(datos.conocimientos));
         }
       } catch (error) {
-        console.error("Error al decodificar el nombre del token:", error);
+        console.error("Error al cargar los datos iniciales desde la BD:", error);
       }
-    }
-  }, []);
+    };
+
+    cargarPerfilDesdeBD();
+  }, [URL_BACKEND]);
 
   // ==========================================
-  // 🔥 FUNCIÓN DE PERSISTENCIA REAL EN LA NUBE
+  // 🔥 3. FUNCIÓN DE PERSISTENCIA AUTOMÁTICA EN LA NUBE
   // ==========================================
   const guardarDatosEnBaseDeDatos = async () => {
     try {
       const token = localStorage.getItem('token');
-      const urlBackend = 'https://tu-proyecto-railway.up.railway.app/api/candidato/perfil'; 
+      if (!token) return;
 
-      const respuesta = await fetch(urlBackend, {
+      await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -91,15 +108,12 @@ export default function DashboardCandidato() {
           conocimientos: JSON.stringify(conocimientos)
         })
       });
-      
-      if (respuesta.ok) {
-        console.log("🔒 Datos respaldados permanentemente en PostgreSQL en Railway.");
-      }
     } catch (error) {
-      console.error("Error al persistir los datos:", error);
+      console.error("Error al persistir los datos automáticamente:", error);
     }
   };
 
+  // Se ejecuta el auto-guardado cada vez que cambian los datos estructurales
   useEffect(() => {
     if (habilidades.length > 0 || perfilCandidato !== '') {
       guardarDatosEnBaseDeDatos();
@@ -236,10 +250,10 @@ export default function DashboardCandidato() {
   const tieneEntrevistaElDia = (dia) => entrevistas.filter(ent => ent.fecha === `2026-05-${dia.toString().padStart(2, '0')}`);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: 'sans-serif', position: 'relative' }}>
       
       {/* 📊 MENÚ LATERAL (SIDEBAR) */}
-      <div style={{ width: '280px', background: '#0f172a', color: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div style={{ width: '280px', background: '#0f172a', color: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 10 }}>
         <div>
           <h2 style={{ color: '#38bdf8', fontSize: '20px', textAlign: 'center', marginBottom: '30px' }}>Emplea 360</h2>
           
@@ -247,6 +261,7 @@ export default function DashboardCandidato() {
             <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#334155', margin: '0 auto 10px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               {previewFoto ? <img src={previewFoto} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#94a3b8' }}>👤</span>}
             </div>
+            {/* 🔥 Muestra el nombre real del candidato obtenido de la Base de Datos */}
             <p style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#38bdf8' }}>{nombreUsuario}</p>
             <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>Panel Candidato</p>
           </div>
@@ -266,8 +281,8 @@ export default function DashboardCandidato() {
         </div>
       </div>
 
-      {/* 🖥️ CONTENIDO */}
-      <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+      {/* 🖥️ CONTENIDO PRINCIPAL */}
+      <div style={{ flex: 1, padding: '40px', overflowY: 'auto', paddingBottom: '80px', position: 'relative' }}>
         
         {activeTab === 'perfil' && (
           <div>
@@ -365,7 +380,7 @@ export default function DashboardCandidato() {
 
         {activeTab === 'documentos' && (
           <div>
-            <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2>Documentación Profesional Generada</h2>
               <button onClick={descargarPdfAts} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
                 🖨️ Descargar CV con Filtros ATS (PDF)
@@ -434,6 +449,23 @@ export default function DashboardCandidato() {
         {activeTab === 'academia' && ( <div><h2>Academia de Habilidades</h2><p>Próximamente cursos adaptados al mercado de San Juan.</p></div> )}
         {activeTab === 'analisis' && ( <div><h2>Análisis de mis Postulaciones</h2><p>Estadísticas detalladas de visualizaciones.</p></div> )}
         {activeTab === 'chat' && ( <div><h2>Canal de Comunicación Directa</h2><p>Bandeja de entrada vacía.</p></div> )}
+
+        {/* 🔥 MARCA DE AGUA / LOGO FIJO ABAJO EN EL FONDO DE LOS PERFILES */}
+        <footer style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '40px',
+          opacity: 0.15,
+          fontSize: '28px',
+          fontWeight: '900',
+          letterSpacing: '1px',
+          color: '#0f172a',
+          textTransform: 'uppercase',
+          pointerEvents: 'none',
+          userSelect: 'none'
+        }}>
+          Emplea 360
+        </footer>
 
       </div>
 
