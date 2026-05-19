@@ -3,7 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
-const https = require('https'); // 🔒 Usamos el módulo nativo de Node.js para evitar errores de fetch
+const https = require('https'); // 🔒 Módulo nativo ultra-compatible con Railway
 
 const app = express();
 
@@ -25,8 +25,10 @@ const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || '';
 
 const esperarSegundos = (segundos) => new Promise(resolve => setTimeout(resolve, segundos * 1000));
 
+// 🔥 FUNCIÓN DE WHATSAPP OPTIMIZADA Y BLINDADA CONTRA CAÍDAS DE PORTO / URL
 async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
-    if (!WHATSAPP_API_URL || !WHATSAPP_API_TOKEN) {
+    // 🛡️ Si la URL no está configurada en Railway, simula de fondo y evita que el servidor explote
+    if (!WHATSAPP_API_URL || WHATSAPP_API_URL.trim() === '' || !WHATSAPP_API_TOKEN) {
         console.log(`[Simulación] Esperando 30 segundos para el número ${telefonoUsuario}...`);
         await esperarSegundos(30);
         console.log(`[Simulación] Pasaron los 30s. Mensaje listo: Código ${codigo}`);
@@ -39,7 +41,6 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
     try {
         await esperarSegundos(30);
 
-        // 🛠️ CONFIGURACIÓN SEGURA CON HTTPS NATIVO (REEMPLAZO DE FETCH)
         const cuerpoDatos = JSON.stringify({
             token: WHATSAPP_API_TOKEN,
             to: numeroDestino,
@@ -101,7 +102,7 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        // Corre en segundo plano de manera asíncrona
+        // Corre en segundo plano asíncronamente sin demorar la respuesta de la API
         enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
         console.log(`\n🔑 [BACKEND LOG] Código generado para ${email}: ${codigo}\n`);
@@ -244,4 +245,46 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
             return res.status(404).json({ error: "Perfil de candidato no encontrado." });
         }
 
-        res.status(200).
+        res.status(200).json({ 
+            mensaje: "🔒 Perfil completo respaldado permanentemente en PostgreSQL.",
+            candidato: resultado.rows[0] 
+        });
+
+    } catch (error) {
+        console.error("Error crítico al guardar el perfil en la base de datos:", error);
+        res.status(500).json({ error: "Error interno del servidor al procesar la persistencia." });
+    }
+});
+
+// 🌟 LEER EL PERFIL COMPLETO (ARREGLADO PARA INTEGRACIÓN DIRECTA DE NOMBRE)
+app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
+    try {
+        const resultado = await pool.query(
+            `SELECT c.*, u.email 
+             FROM candidatos c
+             INNER JOIN usuarios u ON c.usuario_id = u.id
+             WHERE c.usuario_id = $1`, 
+            [req.usuarioId]
+        );
+        
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({ error: 'Candidato no encontrado.' });
+        }
+        
+        const perfilData = resultado.rows[0];
+
+        // Mapeamos explícitamente tanto 'nombre' como 'nombre_completo'
+        // Esto soluciona que el frontend reciba un valor vacío
+        res.json({
+            ...perfilData,
+            nombre: perfilData.nombre_completo, 
+            nombre_completo: perfilData.nombre_completo
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Servidor corriendo con éxito en puerto ${PORT}`));
