@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function DashboardCandidato() {
@@ -42,33 +42,30 @@ export default function DashboardCandidato() {
   // ==========================================
   // 🔑 EXTRAER EL NOMBRE DEL REGISTRO AUTOMÁTICAMENTE
   // ==========================================
- useEffect(() => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    try {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const datosDecodificados = JSON.parse(window.atob(base64));
-      
-      // 👁️ ESTO TE VA A MOSTRAR EN LA CONSOLA DEL NAVEGADOR QUÉ TIENE TU TOKEN:
-      console.log("🔍 Datos reales dentro de tu token:", datosDecodificados);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const datosDecodificados = JSON.parse(window.atob(base64));
+        
+        console.log("🔍 Datos reales dentro de tu token:", datosDecodificados);
 
-      // Revisamos variantes comunes de nombres de variables:
-      if (datosDecodificados.nombre) {
-        setNombreUsuario(datosDecodificados.nombre);
-      } else if (datosDecodificados.nombre_completo) {
-        setNombreUsuario(datosDecodificados.nombre_completo);
-      } else if (datosDecodificados.username) {
-        setNombreUsuario(datosDecodificados.username);
-      } else if (datosDecodificados.email) {
-        // Si no encontrás el nombre por ningún lado, usamos la primera parte del email
-        setNombreUsuario(datosDecodificados.email.split('@')[0]);
+        if (datosDecodificados.nombre) {
+          setNombreUsuario(datosDecodificados.nombre);
+        } else if (datosDecodificados.nombre_completo) {
+          setNombreUsuario(datosDecodificados.nombre_completo);
+        } else if (datosDecodificados.username) {
+          setNombreUsuario(datosDecodificados.username);
+        } else if (datosDecodificados.email) {
+          setNombreUsuario(datosDecodificados.email.split('@')[0]);
+        }
+      } catch (error) {
+        console.error("Error al decodificar el nombre del token:", error);
       }
-    } catch (error) {
-      console.error("Error al decodificar el nombre del token:", error);
     }
-  }
-}, []);
+  }, []);
 
   // ==========================================
   // 🔥 FUNCIÓN DE PERSISTENCIA REAL EN LA NUBE
@@ -103,7 +100,6 @@ export default function DashboardCandidato() {
     }
   };
 
-  // Disparador automático que detecta cambios y los manda a la nube
   useEffect(() => {
     if (habilidades.length > 0 || perfilCandidato !== '') {
       guardarDatosEnBaseDeDatos();
@@ -239,9 +235,6 @@ export default function DashboardCandidato() {
   };
   const tieneEntrevistaElDia = (dia) => entrevistas.filter(ent => ent.fecha === `2026-05-${dia.toString().padStart(2, '0')}`);
 
-  // ==========================================
-  // 🖥️ DISEÑO VISUAL (RENDER)
-  // ==========================================
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
       
@@ -254,7 +247,6 @@ export default function DashboardCandidato() {
             <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#334155', margin: '0 auto 10px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               {previewFoto ? <img src={previewFoto} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#94a3b8' }}>👤</span>}
             </div>
-            {/* 🔥 CAMBIO RELEVANTE: Ahora renderiza el nombre dinámico del registro */}
             <p style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#38bdf8' }}>{nombreUsuario}</p>
             <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>Panel Candidato</p>
           </div>
@@ -274,10 +266,9 @@ export default function DashboardCandidato() {
         </div>
       </div>
 
-      {/* 🖥️ CONTENIDO DE LAS PESTAÑAS */}
+      {/* 🖥️ CONTENIDO */}
       <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
         
-        {/* PESTAÑA: PERFIL */}
         {activeTab === 'perfil' && (
           <div>
             <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Optimización Inteligente</h2>
@@ -300,11 +291,9 @@ export default function DashboardCandidato() {
           </div>
         )}
 
-        {/* PESTAÑA: FORMULARIOS */}
         {activeTab === 'formularios' && (
           <div>
-            <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Gestión de Secciones y Habilidades (Manual / Auto)</h2>
-            
+            <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Gestión de Secciones y Habilidades</h2>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
               <h3>Perfil Profesional Corto</h3>
               <textarea value={perfilCandidato} onChange={(e) => setPerfilCandidato(e.target.value)} rows="3" style={{ width: '100%', padding: '10px', marginTop: '10px', borderRadius: '6px', border: '1px solid #ccc' }}></textarea>
@@ -374,10 +363,9 @@ export default function DashboardCandidato() {
           </div>
         )}
 
-        {/* PESTAÑA: DOCUMENTOS */}
         {activeTab === 'documentos' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2>Documentación Profesional Generada</h2>
               <button onClick={descargarPdfAts} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
                 🖨️ Descargar CV con Filtros ATS (PDF)
@@ -391,7 +379,6 @@ export default function DashboardCandidato() {
               <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <h3>Estructura del Perfil en Emplea 360</h3>
                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  {/* 🔥 CAMBIO RELEVANTE: Muestra el nombre real del candidato registrado */}
                   <p><strong>Candidato:</strong> {nombreUsuario}</p>
                   <p><strong>Resumen:</strong> {perfilCandidato}</p>
                   <p><strong>Habilidades:</strong> {habilidades.join(' · ')}</p>
@@ -402,7 +389,6 @@ export default function DashboardCandidato() {
           </div>
         )}
 
-        {/* PESTAÑA: CALENDARIO */}
         {activeTab === 'calendario' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
