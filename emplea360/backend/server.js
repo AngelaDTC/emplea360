@@ -9,6 +9,70 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ==========================================
+// 💾 ENDPOINT: GUARDAR PERFIL DE CANDIDATO PERMANENTE
+// ==========================================
+app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
+    // 1. Extraemos el id del candidato que viene encriptado en el token (gracias al middleware verificarToken)
+    const candidatoId = req.usuario.id; 
+
+    // 2. Recibimos la información estructurada que mandó el Frontend
+    const { 
+        perfil_candidato, 
+        carta_presentacion, 
+        habilidades, 
+        estudios, 
+        experiencias, 
+        capacitaciones, 
+        conocimientos 
+    } = req.body;
+
+    try {
+        // 3. Ejecutamos la consulta en PostgreSQL para actualizar de forma permanente
+        // Reemplazá 'pool' por el nombre de tu cliente de base de datos si usás otro (ej: 'db' o 'client')
+        const consulta = `
+            UPDATE candidatos 
+            SET 
+                perfil_candidato = $1, 
+                carta_presentacion = $2, 
+                habilidades = $3, 
+                estudios = $4, 
+                experiencias = $5, 
+                capacitaciones = $6, 
+                conocimientos = $7
+            WHERE id = $8
+            RETURNING *;
+        `;
+
+        const valores = [
+            perfil_candidato, 
+            carta_presentacion, 
+            habilidades, 
+            estudios, 
+            experiencias, 
+            capacitaciones, 
+            conocimientos,
+            candidatoId
+        ];
+
+        const resultado = await pool.query(consulta, valores);
+
+        if (resultado.rowCount === 0) {
+            return res.status(404).json({ error: "Candidato no encontrado." });
+        }
+
+        // 4. Si todo salió bien, respondemos con éxito
+        res.status(200).json({ 
+            mensaje: "🔒 Datos del perfil respaldados permanentemente en PostgreSQL.",
+            perfil: resultado.rows[0] 
+        });
+
+    } catch (error) {
+        console.error("Error crítico al guardar el perfil en la base de datos:", error);
+        res.status(500).json({ error: "Error interno del servidor al procesar la persistencia." });
+    }
+});
+
 const JWT_SECRET = process.env.JWT_SECRET || 'emplea360_super_secret_key_2026';
 
 const pool = new Pool({
