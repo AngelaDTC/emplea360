@@ -73,24 +73,6 @@ export default function AuthPage({ onLogin }) {
 
       const data = await response.json();
 
-      if (isLogin) {
-        onLogin(data.token, data.rol);
-        navigate('/dashboard');
-      } else {
-        // 🚨 CAMBIO AGREGADO: Alerta de rescate por si la API de WhatsApp no está activa o demora
-        if (data.bypassCode) {
-          alert(`[Modo Desarrollo] Tu código de verificación es: ${data.bypassCode}\n(El mensaje impactará en 30 segundos en tu WhatsApp si el servicio está en línea).`);
-        }
-        // Abrimos la casilla para poner el código
-        setIsVerifyingCode(true);
-      }
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-  // --- BUSCA ESTA SECCIÓN EXACTA EN TU AUTHPAGE.JSX ---
-const data = await response.json();
-
 if (isLogin) {
   // 🌟 GUARDAR EL NOMBRE: Guardamos el nombre en la memoria local antes de avanzar
   // Asegúrate de que tu backend envíe "data.nombre" (o el campo correspondiente de la BD)
@@ -103,8 +85,6 @@ if (isLogin) {
   onLogin(data.token, data.rol);
   navigate('/dashboard');
 } else {
-  // ... resto de tu código de registro actual ...
-
   // --- FLUJO PARA CONFIRMAR EL CÓDIGO DE REGISTRO ---
   const handleVerifyCodeSubmit = async (e) => {
     e.preventDefault();
