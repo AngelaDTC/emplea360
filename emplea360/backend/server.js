@@ -52,7 +52,7 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
     }
 }
 
-// --- 🛡️ MIDDLEWARE DE AUTENTICACIÓN (Declarado ARRIBA para evitar ReferenceErrors) ---
+// --- 🛡️ MIDDLEWARE DE AUTENTICACIÓN ---
 const verificarToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(403).json({ error: 'Token no provisto.' });
@@ -66,34 +66,15 @@ const verificarToken = (req, res, next) => {
 
 // --- 🌐 ENDPOINTS DE AUTENTICACIÓN ---
 
-app.post('/api/auth/login', async (req, res) => {
-    const { identifier, password } = req.body;
+// 1. ENDPOINT DE REGISTRO (ARREGLADO Y COMPLETO)
+app.post('/api/auth/register', async (req, res) => {
+    const { email, password, telefono, rol, nombre } = req.body;
     try {
-        const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1 OR telefono = $2', [identifier, identifier]);
-        if (userRes.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
-
-        const user = userRes.rows[0];
-        const validPassword = await bcrypt.compare(password, user.password_hash);
-        if (!validPassword) return res.status(401).json({ error: 'Contraseña incorrecta.' });
-
-        const token = jwt.sign({ id: user.id, rol: user.rol }, JWT_SECRET, { expiresIn: '24h' });
-        
-        // 🌟 NUEVO: Buscamos el nombre correspondiente al rol para devolverlo en el login
-        let nombre = '';
-        if (user.rol === 'candidato') {
-            const candRes = await pool.query('SELECT nombre_completo FROM candidatos WHERE usuario_id = $1', [user.id]);
-            if (candRes.rows.length > 0) nombre = candRes.rows[0].nombre_completo;
-        } else {
-            const empRes = await pool.query('SELECT nombre_empresa FROM empresas WHERE usuario_id = $1', [user.id]);
-            if (empRes.rows.length > 0) nombre = empRes.rows[0].nombre_empresa;
+        const existeUser = await pool.query('SELECT * FROM usuarios WHERE email = $1 OR telefono = $2', [email, telefono]);
+        if (existeUser.rows.length > 0) {
+            return res.status(400).json({ error: 'El email o el teléfono ya están registrados.' });
         }
 
-        // Ahora enviamos también el 'nombre' al frontend
-        res.json({ token, rol: user.rol, nombre });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
         const passwordHash = await bcrypt.hash(password, 10);
         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
         
@@ -115,6 +96,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// 2. ENDPOINT DE VERIFICACIÓN DE REGISTRO
 app.post('/api/auth/verify-register', async (req, res) => {
     const { email, code } = req.body;
     try {
@@ -141,6 +123,7 @@ app.post('/api/auth/verify-register', async (req, res) => {
     }
 });
 
+// 3. ENDPOINT DE LOGIN (CORREGIDO CON LA BÚSQUEDA DE NOMBRE)
 app.post('/api/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     try {
@@ -152,12 +135,24 @@ app.post('/api/auth/login', async (req, res) => {
         if (!validPassword) return res.status(401).json({ error: 'Contraseña incorrecta.' });
 
         const token = jwt.sign({ id: user.id, rol: user.rol }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, rol: user.rol });
+        
+        // Buscamos el nombre guardado según el rol para pasarlo al Frontend
+        let nombre = '';
+        if (user.rol === 'candidato') {
+            const candRes = await pool.query('SELECT nombre_completo FROM candidatos WHERE usuario_id = $1', [user.id]);
+            if (candRes.rows.length > 0) nombre = candRes.rows[0].nombre_completo;
+        } else {
+            const empRes = await pool.query('SELECT nombre_empresa FROM empresas WHERE usuario_id = $1', [user.id]);
+            if (empRes.rows.length > 0) nombre = empRes.rows[0].nombre_empresa;
+        }
+
+        res.json({ token, rol: user.rol, nombre });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
+// 4. RECUPERAR CONTRASEÑA
 app.post('/api/auth/forgot-password', async (req, res) => {
     const { email, telefono } = req.body;
     try {
@@ -173,8 +168,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 });
 
+// --- 💾 ENDPOINTS DE PERFIL ---
 
-// --- 💾 ENDPOINT UNIFICADO: GUARDAR PERFIL COMPLETO (Se ejecuta buscando por usuario_id) ---
+// GUARDAR PERFIL COMPLETO
 app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     const { 
         perfil_candidato, 
@@ -198,7 +194,7 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
                 carta_presentacion = COALESCE($2, carta_presentacion), 
                 habilidades = COALESCE($3, habilidades), 
                 estudios = COALESCE($4, estudios), 
-                experiencias = COALESCE($5, experiences), 
+                experiencias = COALESCE($5, experiencias), 
                 capacitaciones = COALESCE($6, capacitaciones), 
                 conocimientos = COALESCE($7, conocimientos),
                 foto_base64 = COALESCE($8, foto_base64), 
@@ -221,7 +217,7 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
             cv_base64 || null,
             ats_score || null,
             ats_consejos || null,
-            req.usuarioId // Sincronizado correctamente con el middleware
+            req.usuarioId
         ];
 
         const resultado = await pool.query(consulta, valores);
@@ -241,11 +237,9 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     }
 });
 
-// --- 📑 ENDPOINT PARA LEER EL PERFIL AL INICIAR EL DASHBOARD (CORREGIDO) ---
+// LEER EL PERFIL COMPLETO
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
-        // Hacemos un JOIN para asegurarnos de traer los datos del candidato 
-        // y por si acaso el email o datos de la tabla de usuarios vinculada.
         const resultado = await pool.query(
             `SELECT c.*, u.email 
              FROM candidatos c
@@ -258,8 +252,6 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
             return res.status(404).json({ error: 'Candidato no encontrado.' });
         }
         
-        // Enviamos todo el registro. Asegurate de que en tu base de datos 
-        // la columna se llame 'nombre_completo'
         res.json(resultado.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
