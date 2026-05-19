@@ -9,6 +9,7 @@ export default function DashboardCandidato() {
 
   // ==========================================
   // 💾 1. DECLARACIÓN DE TODOS TUS ESTADOS
+  // ⚡ OPTIMIZACIÓN: Carga inmediata usando localStorage como Caché
   // ==========================================
   const [activeTab, setActiveTab] = useState('perfil'); 
   const [cvFile, setCvFile] = useState(null);
@@ -19,18 +20,35 @@ export default function DashboardCandidato() {
   const [tieneCambiosSinGuardar, setTieneCambiosSinGuardar] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
-  // 🌟 Estado para el nombre del usuario (Con respaldo de localStorage)
+  // 🌟 Nombre con respaldo inmediato
   const [nombreUsuario, setNombreUsuario] = useState(() => {
     return localStorage.getItem('usuario_nombre') || 'Candidato';
   });
 
-  const [perfilCandidato, setPerfilCandidato] = useState('');
-  const [cartaPresentacion, setCartaPresentacion] = useState('');
-  const [habilidades, setHabilidades] = useState([]);
-  const [estudios, setEstudios] = useState([]);
-  const [experiencias, setExperiencias] = useState([]);
-  const [capacitaciones, setCapacitaciones] = useState([]);
-  const [conocimientos, setConocimientos] = useState([]);
+  // ⚡ Inicialización instantánea con caché local para evitar la pantalla en blanco o demoras
+  const [perfilCandidato, setPerfilCandidato] = useState(() => localStorage.getItem('cache_perfil') || '');
+  const [cartaPresentacion, setCartaPresentacion] = useState(() => localStorage.getItem('cache_carta') || '');
+  
+  const [habilidades, setHabilidades] = useState(() => {
+    const cached = localStorage.getItem('cache_habilidades');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [estudios, setEstudios] = useState(() => {
+    const cached = localStorage.getItem('cache_estudios');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [experiencias, setExperiencias] = useState(() => {
+    const cached = localStorage.getItem('cache_experiencias');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [capacitaciones, setCapacitaciones] = useState(() => {
+    const cached = localStorage.getItem('cache_capacitaciones');
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [conocimientos, setConocimientos] = useState(() => {
+    const cached = localStorage.getItem('cache_conocimientos');
+    return cached ? JSON.parse(cached) : [];
+  });
 
   const [nuevaHabilidad, setNuevaHabilidad] = useState('');
   const [nuevoEstudio, setNuevoEstudio] = useState({ titulo: '', institucion: '', año: '' });
@@ -49,20 +67,15 @@ export default function DashboardCandidato() {
   const diasMes = Array.from({ length: 31 }, (_, i) => i + 1);
 
   // ==========================================
-  // 🔑 2. CARGAR PERFIL DE LA BASE DE DATOS Y LOCALSTORAGE
+  // 🔑 2. CARGAR PERFIL EN SEGUNDO PLANO (ASÍNCRONO REAL)
   // ==========================================
   useEffect(() => {
     const cargarPerfilDesdeBD = async () => {
       try {
         const token = localStorage.getItem('token');
-        
-        const nombreLocal = localStorage.getItem('usuario_nombre');
-        if (nombreLocal) {
-          setNombreUsuario(nombreLocal);
-        }
-
         if (!token) return;
 
+        // La petición se ejecuta de fondo sin bloquear los estados que ya se pintaron desde el caché
         const respuesta = await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
           method: 'GET',
           headers: {
@@ -72,8 +85,9 @@ export default function DashboardCandidato() {
 
         if (respuesta.ok) {
           const datos = await respuesta.json();
-          console.log("🔒 Perfil recuperado de PostgreSQL:", datos);
+          console.log("🔒 Perfil sincronizado de fondo con PostgreSQL:", datos);
           
+          // Sincronizamos el nombre de usuario
           if (datos.nombre_completo && datos.nombre_completo.trim() !== "") {
             setNombreUsuario(datos.nombre_completo);
             localStorage.setItem('usuario_nombre', datos.nombre_completo);
@@ -82,15 +96,32 @@ export default function DashboardCandidato() {
             localStorage.setItem('usuario_nombre', datos.nombre);
           }
           
+          // Actualizamos los estados en memoria
           if (datos.perfil_candidato) setPerfilCandidato(datos.perfil_candidato);
           if (datos.carta_presentacion) setCartaPresentacion(datos.carta_presentacion);
-          if (datos.habilidades) setHabilidades(typeof datos.habilidades === 'string' ? JSON.parse(datos.habilidades) : datos.habilidades);
-          if (datos.estudios) setEstudios(typeof datos.estudios === 'string' ? JSON.parse(datos.estudios) : datos.estudios);
-          if (datos.experiencias) setExperiencias(typeof datos.experiencias === 'string' ? JSON.parse(datos.experiencias) : datos.experiencias);
-          if (datos.capacitaciones) setCapacitaciones(typeof datos.capacitaciones === 'string' ? JSON.parse(datos.capacitaciones) : datos.capacitaciones);
-          if (datos.conocimientos) setConocimientos(typeof datos.conocimientos === 'string' ? JSON.parse(datos.conocimientos) : datos.conocimientos);
           
-          // Desactivamos la bandera de cambios ya que acabamos de heredar el estado limpio de la BD
+          const habs = datos.habilidades ? (typeof datos.habilidades === 'string' ? JSON.parse(datos.habilidades) : datos.habilidades) : [];
+          const ests = datos.estudios ? (typeof datos.estudios === 'string' ? JSON.parse(datos.estudios) : datos.estudios) : [];
+          const exps = datos.experiencias ? (typeof datos.experiencias === 'string' ? JSON.parse(datos.experiencias) : datos.experiencias) : [];
+          const caps = datos.capacitaciones ? (typeof datos.capacitaciones === 'string' ? JSON.parse(datos.capacitaciones) : datos.capacitaciones) : [];
+          const cons = datos.conocimientos ? (typeof datos.conocimientos === 'string' ? JSON.parse(datos.conocimientos) : datos.conocimientos) : [];
+
+          setHabilidades(habs);
+          setEstudios(ests);
+          setExperiencias(exps);
+          setCapacitaciones(caps);
+          setConocimientos(cons);
+
+          // ⚡ Actualizamos el caché de LocalStorage para la próxima entrada instantánea
+          if (datos.perfil_candidato) localStorage.setItem('cache_perfil', datos.perfil_candidato);
+          if (datos.carta_presentacion) localStorage.setItem('cache_carta', datos.carta_presentacion);
+          localStorage.setItem('cache_habilidades', JSON.stringify(habs));
+          localStorage.setItem('cache_estudios', JSON.stringify(ests));
+          localStorage.setItem('cache_experiencias', JSON.stringify(exps));
+          localStorage.setItem('cache_capacitaciones', JSON.stringify(caps));
+          localStorage.setItem('cache_conocimientos', JSON.stringify(cons));
+          
+          // Como acabamos de traer la info limpia de la BD, no hay discrepancias
           setTieneCambiosSinGuardar(false);
         }
       } catch (error) {
@@ -110,7 +141,7 @@ export default function DashboardCandidato() {
 
   // Escuchador de cambios para avisarle al usuario que tiene modificaciones pendientes
   useEffect(() => {
-    // Evitamos marcar cambios en el render inicial si los campos están vacíos
+    // Solo marcamos cambios si ya pasó la carga inicial básica
     if (perfilCandidato || habilidades.length > 0 || estudios.length > 0) {
       setTieneCambiosSinGuardar(true);
     }
@@ -124,6 +155,15 @@ export default function DashboardCandidato() {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
+
+      // Actualizamos el caché local inmediatamente antes de viajar a la red
+      localStorage.setItem('cache_perfil', perfilCandidato);
+      localStorage.setItem('cache_carta', cartaPresentacion);
+      localStorage.setItem('cache_habilidades', JSON.stringify(habilidades));
+      localStorage.setItem('cache_estudios', JSON.stringify(estudios));
+      localStorage.setItem('cache_experiencias', JSON.stringify(experiencias));
+      localStorage.setItem('cache_capacitaciones', JSON.stringify(capacitaciones));
+      localStorage.setItem('cache_conocimientos', JSON.stringify(conocimientos));
 
       const respuesta = await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
         method: 'PUT',
@@ -161,6 +201,13 @@ export default function DashboardCandidato() {
     localStorage.removeItem('token');
     localStorage.removeItem('rol');
     localStorage.removeItem('usuario_nombre');
+    localStorage.removeItem('cache_perfil');
+    localStorage.removeItem('cache_carta');
+    localStorage.removeItem('cache_habilidades');
+    localStorage.removeItem('cache_estudios');
+    localStorage.removeItem('cache_experiencias');
+    localStorage.removeItem('cache_capacitaciones');
+    localStorage.removeItem('cache_conocimientos');
     navigate('/');
   };
 
@@ -194,7 +241,7 @@ export default function DashboardCandidato() {
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (previewFoto) URL.revokeObjectURL(previewFoto); // Liberamos la foto anterior de la memoria
+      if (previewFoto) URL.revokeObjectURL(previewFoto);
       setPreviewFoto(URL.createObjectURL(file));
     }
   };
@@ -306,7 +353,7 @@ export default function DashboardCandidato() {
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: 'sans-serif', position: 'relative' }}>
       
-      {/* 💾 BOTÓN FLOTANTE DE NOTIFICACIÓN DE GUARDADO (ESTILO MODERNO) */}
+      {/* 💾 BOTÓN FLOTANTE DE NOTIFICACIÓN DE GUARDADO */}
       {tieneCambiosSinGuardar && (
         <div style={{
           position: 'fixed',
@@ -472,7 +519,7 @@ export default function DashboardCandidato() {
 
         {activeTab === 'documentos' && (
           <div>
-            <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2>Documentación Profesional Generada</h2>
               <button onClick={descargarPdfAts} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
                 🖨️ Descargar CV con Filtros ATS (PDF)
