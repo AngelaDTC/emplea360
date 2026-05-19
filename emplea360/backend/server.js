@@ -9,70 +9,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ==========================================
-// 💾 ENDPOINT: GUARDAR PERFIL DE CANDIDATO PERMANENTE
-// ==========================================
-app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
-    // 1. Extraemos el id del candidato que viene encriptado en el token (gracias al middleware verificarToken)
-    const candidatoId = req.usuario.id; 
-
-    // 2. Recibimos la información estructurada que mandó el Frontend
-    const { 
-        perfil_candidato, 
-        carta_presentacion, 
-        habilidades, 
-        estudios, 
-        experiencias, 
-        capacitaciones, 
-        conocimientos 
-    } = req.body;
-
-    try {
-        // 3. Ejecutamos la consulta en PostgreSQL para actualizar de forma permanente
-        // Reemplazá 'pool' por el nombre de tu cliente de base de datos si usás otro (ej: 'db' o 'client')
-        const consulta = `
-            UPDATE candidatos 
-            SET 
-                perfil_candidato = $1, 
-                carta_presentacion = $2, 
-                habilidades = $3, 
-                estudios = $4, 
-                experiencias = $5, 
-                capacitaciones = $6, 
-                conocimientos = $7
-            WHERE id = $8
-            RETURNING *;
-        `;
-
-        const valores = [
-            perfil_candidato, 
-            carta_presentacion, 
-            habilidades, 
-            estudios, 
-            experiencias, 
-            capacitaciones, 
-            conocimientos,
-            candidatoId
-        ];
-
-        const resultado = await pool.query(consulta, valores);
-
-        if (resultado.rowCount === 0) {
-            return res.status(404).json({ error: "Candidato no encontrado." });
-        }
-
-        // 4. Si todo salió bien, respondemos con éxito
-        res.status(200).json({ 
-            mensaje: "🔒 Datos del perfil respaldados permanentemente en PostgreSQL.",
-            perfil: resultado.rows[0] 
-        });
-
-    } catch (error) {
-        console.error("Error crítico al guardar el perfil en la base de datos:", error);
-        res.status(500).json({ error: "Error interno del servidor al procesar la persistencia." });
-    }
-});
-
 const JWT_SECRET = process.env.JWT_SECRET || 'emplea360_super_secret_key_2026';
 
 const pool = new Pool({
@@ -82,14 +18,13 @@ const pool = new Pool({
 
 const codigosVerificacion = new Map();
 
-// Variables de entorno para UltraMsg o similar (opcionales)
+// Variables de entorno para UltraMsg o similar
 const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || ''; 
 const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || '';
 
 const esperarSegundos = (segundos) => new Promise(resolve => setTimeout(resolve, segundos * 1000));
 
 async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
-    // Si no configuraste variables en Railway, no hace la petición externa para no romper nada
     if (!WHATSAPP_API_URL || !WHATSAPP_API_TOKEN) {
         console.log(`[Simulación] Esperando 30 segundos para el número ${telefonoUsuario}...`);
         await esperarSegundos(30);
@@ -117,7 +52,19 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
     }
 }
 
-// --- ENDPOINTS ---
+// --- 🛡️ MIDDLEWARE DE AUTENTICACIÓN (Declarado ARRIBA para evitar ReferenceErrors) ---
+const verificarToken = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(403).json({ error: 'Token no provisto.' });
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ error: 'Token inválido o expirado.' });
+        req.usuarioId = decoded.id; // Guardamos el ID del usuario autenticado
+        next();
+    });
+};
+
+// --- 🌐 ENDPOINTS DE AUTENTICACIÓN ---
 
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
@@ -135,16 +82,13 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        // Se ejecuta en segundo plano con su delay de 30 segundos
         enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
         console.log(`\n🔑 [BACKEND LOG] Código generado para ${email}: ${codigo}\n`);
 
-        // 🔥 CLAVE: Enviamos el código en la respuesta para que el Frontend lo sepa 
-        // y puedas saltear el paso si la API externa no está conectada de verdad.
         res.status(200).json({ 
             mensaje: "Código despachado con éxito.",
-            bypassCode: codigo // <-- Esto rescatará tu flujo en desarrollo
+            bypassCode: codigo 
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -209,44 +153,75 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 });
 
-// --- MIDDLEWARE DE AUTENTICACIÓN PARA PROTEGER RUTAS ---
-const verificarToken = (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(403).json({ error: 'Token no provisto.' });
 
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-        if (err) return res.status(401).json({ error: 'Token inválido o expirado.' });
-        req.usuarioId = decoded.id;
-        next();
-    });
-};
-
-// --- ENDPOINT PARA ACTUALIZAR PERFIL CANDIDATO (CV, FOTO Y ATS) ---
+// --- 💾 ENDPOINT UNIFICADO: GUARDAR PERFIL COMPLETO (Se ejecuta buscando por usuario_id) ---
 app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
-    const { foto_base64, cv_base64, ats_score, ats_consejos } = req.body;
+    const { 
+        perfil_candidato, 
+        carta_presentacion, 
+        habilidades, 
+        estudios, 
+        experiencias, 
+        capacitaciones, 
+        conocimientos,
+        foto_base64,
+        cv_base64,
+        ats_score,
+        ats_consejos
+    } = req.body;
+
     try {
-        // Buscamos y actualizamos el candidato asociado al usuario autenticado
-        const resultado = await pool.query(
-            `UPDATE candidatos 
-             SET foto_base64 = COALESCE($1, foto_base64), 
-                 cv_base64 = COALESCE($2, cv_base64),
-                 ats_score = COALESCE($3, ats_score),
-                 ats_consejos = COALESCE($4, ats_consejos)
-             WHERE usuario_id = $5 RETURNING *`,
-            [foto_base64, cv_base64, ats_score, ats_consejos, req.usuarioId]
-        );
+        const consulta = `
+            UPDATE candidatos 
+            SET 
+                perfil_candidato = COALESCE($1, perfil_candidato), 
+                carta_presentacion = COALESCE($2, carta_presentacion), 
+                habilidades = COALESCE($3, habilidades), 
+                estudios = COALESCE($4, estudios), 
+                experiencias = COALESCE($5, experiences), 
+                capacitaciones = COALESCE($6, capacitaciones), 
+                conocimientos = COALESCE($7, conocimientos),
+                foto_base64 = COALESCE($8, foto_base64), 
+                cv_base64 = COALESCE($9, cv_base64),
+                ats_score = COALESCE($10, ats_score),
+                ats_consejos = COALESCE($11, ats_consejos)
+            WHERE usuario_id = $12
+            RETURNING *;
+        `;
+
+        const valores = [
+            perfil_candidato || null, 
+            carta_presentacion || null, 
+            habilidades || null, 
+            estudios || null, 
+            experiencias || null, 
+            capacitaciones || null, 
+            conocimientos || null,
+            foto_base64 || null,
+            cv_base64 || null,
+            ats_score || null,
+            ats_consejos || null,
+            req.usuarioId // Sincronizado correctamente con el middleware
+        ];
+
+        const resultado = await pool.query(consulta, valores);
 
         if (resultado.rows.length === 0) {
-            return res.status(404).json({ error: 'Perfil de candidato no encontrado.' });
+            return res.status(404).json({ error: "Perfil de candidato no encontrado." });
         }
 
-        res.json({ mensaje: 'Perfil guardado con éxito en la base de datos.', candidato: resultado.rows[0] });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(200).json({ 
+            mensaje: "🔒 Perfil completo respaldado permanentemente en PostgreSQL.",
+            candidato: resultado.rows[0] 
+        });
+
+    } catch (error) {
+        console.error("Error crítico al guardar el perfil en la base de datos:", error);
+        res.status(500).json({ error: "Error interno del servidor al procesar la persistencia." });
     }
 });
 
-// --- ENDPOINT PARA LEER EL PERFIL AL INICIAR EL DASHBOARD ---
+// --- 📑 ENDPOINT PARA LEER EL PERFIL AL INICIAR EL DASHBOARD ---
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
         const resultado = await pool.query('SELECT * FROM candidatos WHERE usuario_id = $1', [req.usuarioId]);
