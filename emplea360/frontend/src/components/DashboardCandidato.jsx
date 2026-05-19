@@ -1,16 +1,19 @@
-import React, { useState, useEffect } from 'react'; // <-- 1. IMPORTANTE: Verificá que el useEffect esté acá arriba
+import React, { useState, useEffect } from 'react'; 
 import { useNavigate } from 'react-router-dom';
 
 export default function DashboardCandidato() {
   const navigate = useNavigate();
 
   // ==========================================
-  // 💾 1. DECLARACIÓN DE TODOS TUS ESTADOS (ESTO YA LO TENÍAS)
+  // 💾 1. DECLARACIÓN DE TODOS TUS ESTADOS
   // ==========================================
   const [activeTab, setActiveTab] = useState('perfil'); 
   const [cvFile, setCvFile] = useState(null);
   const [previewFoto, setPreviewFoto] = useState(null);
   const [atsScore, setAtsScore] = useState(null);
+  
+  // 🔥 NUEVO ESTADO: Guarda el nombre con el que se registró el usuario
+  const [nombreUsuario, setNombreUsuario] = useState('Candidato');
 
   const [perfilCandidato, setPerfilCandidato] = useState('');
   const [cartaPresentacion, setCartaPresentacion] = useState('');
@@ -36,16 +39,36 @@ export default function DashboardCandidato() {
   const [nuevaEntrevista, setNuevaEntrevista] = useState({ empresa: '', fecha: '', hora: '' });
   const diasMes = Array.from({ length: 31 }, (_, i) => i + 1);
 
+  // ==========================================
+  // 🔑 EXTRAER EL NOMBRE DEL REGISTRO AUTOMÁTICAMENTE
+  // ==========================================
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        // Decodificamos la parte central (payload) del JWT Token de forma nativa
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const datosDecodificados = JSON.parse(window.atob(base64));
+        
+        // Si en tu backend al loguear/registrar guardaste el nombre en 'nombre', lo toma de ahí
+        if (datosDecodificados.nombre) {
+          setNombreUsuario(datosDecodificados.nombre);
+        } else if (datosDecodificados.username) {
+          setNombreUsuario(datosDecodificados.username);
+        }
+      } catch (error) {
+        console.error("Error al decodificar el nombre del token:", error);
+      }
+    }
+  }, []);
 
   // ==========================================
-  // 🔥 🔥 ACÁ VA LA FUNCIÓN DE PERSISTENCIA REAL 🔥 🔥
+  // 🔥 FUNCIÓN DE PERSISTENCIA REAL EN LA NUBE
   // ==========================================
-  
   const guardarDatosEnBaseDeDatos = async () => {
     try {
       const token = localStorage.getItem('token');
-      
-      // ⚠️ RECUERDA REMPLAZAR ESTA URL POR LA TUYA REAL DE RAILWAY CUANDO LO SUBAS ⚠️
       const urlBackend = 'https://tu-proyecto-railway.up.railway.app/api/candidato/perfil'; 
 
       const respuesta = await fetch(urlBackend, {
@@ -81,9 +104,8 @@ export default function DashboardCandidato() {
   }, [perfilCandidato, cartaPresentacion, habilidades, estudios, experiencias, capacitaciones, conocimientos]);
 
   // ==========================================
-  // ⚙️ 2. FUNCIONES DE LÓGICA E INTERACCIÓN (MANUALES Y AUTOMÁTICAS)
+  // ⚙️ FUNCIONES DE LÓGICA E INTERACCIÓN
   // ==========================================
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('rol');
@@ -104,15 +126,15 @@ export default function DashboardCandidato() {
           ]
         });
 
-        setPerfilCandidato("Profesional proactivo orientado al desarrollo de soluciones tecnológicas eficientes, con sólida experiencia en trabajo en equipo, metodologías ágiles y optimización de procesos de bases de datos. Apasionado por la mejora continua y el impacto regional.");
-        setCartaPresentacion("Estimado responsable de selección,\n\nMe dirijo a usted con gran entusiasmo para presentar mi postulación a los perfiles activos de su prestigiosa organización. Tras analizar las demandas actuales del sector, considero que mis competencias técnicas y habilidades interpersonales se alinean con sus objetivos comerciales.\n\nAgradezco de antemano su consideración.\n\nAtentamente,\nPostulante de Emplea 360");
+        setPerfilCandidato(`Profesional proactivo orientado al desarrollo de soluciones eficientes. Mi enfoque principal está en el trabajo en equipo, la adopción de metodologías ágiles y el aporte de valor técnico al crecimiento regional desde mi rol como candidato.`);
+        setCartaPresentacion(`Estimado responsable de selección,\n\nMe dirijo a usted con gran entusiasmo para presentar mi postulación a los perfiles activos de su prestigiosa organización. Tras analizar las demandas actuales del sector, considero que mis competencias técnicas y habilidades interpersonales se alinean con sus objetivos comerciales.\n\nAgradezco de antemano su consideración.\n\nAtentamente,\n${nombreUsuario}`);
         setHabilidades(["React.js", "JavaScript", "Node.js", "PostgreSQL"]);
         setEstudios([{ titulo: "Tecnicatura en Desarrollo de Software", institucion: "Universidad Nacional", año: "2025" }]);
         setExperiencias([{ puesto: "Desarrollador Full Stack Trainee", empresa: "Innovación Local S.A.", periodo: "2024 - Presente" }]);
         setCapacitaciones([{ nombre: "Especialización en Arquitecturas Web", entidad: "Academia Emplea 360" }]);
         setConocimientos(["Git & GitHub", "Bases de Datos Relacionales", "Excel Avanzado"]);
 
-        alert("✨ ¡CV procesado con éxito! Los campos, la Carta de Presentación y el Perfil se completaron de forma automática.");
+        alert("✨ ¡CV procesado con éxito! Se cargaron tus datos y la documentación automática.");
       }, 1200);
     }
   };
@@ -165,7 +187,7 @@ export default function DashboardCandidato() {
     ventanaImpresion.document.write(`
       <html>
         <head>
-          <title>CV Optimizado - ATS</title>
+          <title>CV Optimizado - ATS - ${nombreUsuario}</title>
           <style>
             body { font-family: Arial, sans-serif; color: #111; line-height: 1.5; padding: 40px; max-width: 800px; margin: 0 auto; }
             .encabezado-ats { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
@@ -179,8 +201,8 @@ export default function DashboardCandidato() {
         </head>
         <body>
           <div class="encabezado-ats">
-            <h1>CURRÍCULUM OPTIMIZADO PARA FILTROS ATS</h1>
-            <p>EMPLEA 360 - FORMATO ESTÁNDAR DE LECTURA DE SISTEMAS AUTOMATIZADOS</p>
+            <h1>CURRÍCULUM DE ${nombreUsuario.toUpperCase()}</h1>
+            <p>EMPLEA 360 - FORMATO ESTÁNDAR DE LECTURA DE SISTEMAS AUTOMATIZADOS (ATS)</p>
           </div>
           <h2>Perfil Profesional</h2>
           <p>${perfilCandidato || 'No especificado.'}</p>
@@ -211,7 +233,7 @@ export default function DashboardCandidato() {
   const tieneEntrevistaElDia = (dia) => entrevistas.filter(ent => ent.fecha === `2026-05-${dia.toString().padStart(2, '0')}`);
 
   // ==========================================
-  // 🖥️ 3. DISEÑO VISUAL (RENDER - EL RETORNO DE LA VISTA)
+  // 🖥️ DISEÑO VISUAL (RENDER)
   // ==========================================
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
@@ -225,7 +247,9 @@ export default function DashboardCandidato() {
             <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#334155', margin: '0 auto 10px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               {previewFoto ? <img src={previewFoto} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#94a3b8' }}>👤</span>}
             </div>
-            <p style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>Panel Candidato</p>
+            {/* 🔥 CAMBIO RELEVANTE: Ahora renderiza el nombre dinámico del registro */}
+            <p style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#38bdf8' }}>{nombreUsuario}</p>
+            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>Panel Candidato</p>
           </div>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -346,7 +370,7 @@ export default function DashboardCandidato() {
         {/* PESTAÑA: DOCUMENTOS */}
         {activeTab === 'documentos' && (
           <div>
-            <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2>Documentación Profesional Generada</h2>
               <button onClick={descargarPdfAts} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
                 🖨️ Descargar CV con Filtros ATS (PDF)
@@ -360,6 +384,8 @@ export default function DashboardCandidato() {
               <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <h3>Estructura del Perfil en Emplea 360</h3>
                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  {/* 🔥 CAMBIO RELEVANTE: Muestra el nombre real del candidato registrado */}
+                  <p><strong>Candidato:</strong> {nombreUsuario}</p>
                   <p><strong>Resumen:</strong> {perfilCandidato}</p>
                   <p><strong>Habilidades:</strong> {habilidades.join(' · ')}</p>
                   <p><strong>Conocimientos:</strong> {conocimientos.join(' · ')}</p>
