@@ -88,6 +88,22 @@ export default function AuthPage({ onLogin }) {
       setError(err.message);
     }
   };
+  // --- BUSCA ESTA SECCIÓN EXACTA EN TU AUTHPAGE.JSX ---
+const data = await response.json();
+
+if (isLogin) {
+  // 🌟 GUARDAR EL NOMBRE: Guardamos el nombre en la memoria local antes de avanzar
+  // Asegúrate de que tu backend envíe "data.nombre" (o el campo correspondiente de la BD)
+  if (data.nombre) {
+    localStorage.setItem('usuario_nombre', data.nombre);
+  } else if (formData.nombre) {
+    localStorage.setItem('usuario_nombre', formData.nombre);
+  }
+
+  onLogin(data.token, data.rol);
+  navigate('/dashboard');
+} else {
+  // ... resto de tu código de registro actual ...
 
   // --- FLUJO PARA CONFIRMAR EL CÓDIGO DE REGISTRO ---
   const handleVerifyCodeSubmit = async (e) => {
