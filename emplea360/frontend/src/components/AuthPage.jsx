@@ -43,6 +43,7 @@ export default function AuthPage({ onLogin }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // --- FLUJO PRINCIPAL: LOGIN / REGISTRO ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -73,18 +74,26 @@ export default function AuthPage({ onLogin }) {
 
       const data = await response.json();
 
-if (isLogin) {
-  // 🌟 GUARDAR EL NOMBRE: Guardamos el nombre en la memoria local antes de avanzar
-  // Asegúrate de que tu backend envíe "data.nombre" (o el campo correspondiente de la BD)
-  if (data.nombre) {
-    localStorage.setItem('usuario_nombre', data.nombre);
-  } else if (formData.nombre) {
-    localStorage.setItem('usuario_nombre', formData.nombre);
-  }
+      if (isLogin) {
+        // 🌟 GUARDAR EL NOMBRE EN LOCALSTORAGE
+        if (data.nombre) {
+          localStorage.setItem('usuario_nombre', data.nombre);
+        } else if (formData.nombre) {
+          localStorage.setItem('usuario_nombre', formData.nombre);
+        }
 
-  onLogin(data.token, data.rol);
-  navigate('/dashboard');
-} else {
+        onLogin(data.token, data.rol);
+        navigate('/dashboard');
+      } else {
+        // Si el registro fue exitoso, pasamos a la pantalla de verificación de código
+        alert("Código de verificación enviado. Por favor verifica tu cuenta.");
+        setIsVerifyingCode(true);
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   // --- FLUJO PARA CONFIRMAR EL CÓDIGO DE REGISTRO ---
   const handleVerifyCodeSubmit = async (e) => {
     e.preventDefault();
@@ -181,150 +190,4 @@ if (isLogin) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a' }}>
         <form onSubmit={handleForgotPasswordSubmit} style={{ background: '#fff', padding: '40px', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#00458e' }}>Recuperar Contraseña</h2>
-          
-          {error && <p style={{ color: 'red', textAlign: 'center', fontWeight: 'bold' }}>{error}</p>}
-          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px', textAlign: 'center' }}>Ingresá tus datos para enviarte un código de verificación y el enlace de cambio.</p>
-
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Email Vinculado</label>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Teléfono (WhatsApp)</label>
-            <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
-          </div>
-
-          <button type="submit" style={{ width: '100%', padding: '12px', background: '#00458e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-            Solicitar Enlace de Cambio
-          </button>
-
-          <p style={{ textAlign: 'center', marginTop: '20px', cursor: 'pointer', color: '#00458e' }} onClick={() => setIsForgotPassword(false)}>
-            Volver al Inicio de Sesión
-          </p>
-        </form>
-      </div>
-    );
-  }
-
-  // --- VISTA 3: LOGIN / REGISTRO PRINCIPAL ---
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a' }}>
-      <form onSubmit={handleSubmit} style={{ background: '#fff', padding: '40px', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#00458e' }}>
-          {isLogin ? 'Iniciar Sesión' : 'Registrarse en Emplea 360'}
-        </h2>
-        
-        {error && <p style={{ color: 'red', textAlign: 'center', fontWeight: 'bold' }}>{error}</p>}
-
-        {!isLogin && (
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Nombre / Razón Social</label>
-            <input type="text" name="nombre" value={formData.nombre} onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
-          </div>
-        )}
-
-        {isLogin ? (
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Correo Electrónico o Teléfono</label>
-            <input 
-              type="text" 
-              name="identifier" 
-              placeholder="ejemplo@mail.com o +549..."
-              value={formData.identifier} 
-              onChange={handleChange} 
-              required 
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
-            />
-          </div>
-        ) : (
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Email</label>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
-          </div>
-        )}
-
-        {!isLogin && (
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Teléfono (WhatsApp)</label>
-            <input 
-              type="tel" 
-              name="telefono" 
-              value={formData.telefono} 
-              onChange={handleChange} 
-              required 
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
-            />
-          </div>
-        )}
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Contraseña</label>
-          <input 
-            type={showPassword ? 'text' : 'password'} 
-            name="password" 
-            value={formData.password} 
-            onChange={handleChange} 
-            required 
-            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
-          />
-        </div>
-
-        {!isLogin && (
-          <div style={{ marginBottom: '10px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Confirmar Contraseña</label>
-            <input 
-              type={showPassword ? 'text' : 'password'} 
-              name="confirmPassword" 
-              value={formData.confirmPassword} 
-              onChange={handleChange} 
-              required 
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
-            />
-          </div>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
-          <input 
-            type="checkbox" 
-            id="togglePassword" 
-            checked={showPassword} 
-            onChange={() => setShowPassword(!showPassword)} 
-            style={{ marginRight: '8px', cursor: 'pointer' }}
-          />
-          <label htmlFor="togglePassword" style={{ fontSize: '14px', color: '#475569', cursor: 'pointer', userSelect: 'none' }}>
-            Visualizar contraseña
-          </label>
-        </div>
-
-        {!isLogin && (
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Tipo de Perfil</label>
-            <select name="rol" value={formData.rol} onChange={handleChange} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
-              <option value="candidato">Candidato (Busco Trabajo)</option>
-              <option value="empresa">Empresa (Busco Talento)</option>
-            </select>
-          </div>
-        )}
-
-        {isLogin && (
-          <p 
-            style={{ textAlign: 'right', fontSize: '13px', color: '#00458e', cursor: 'pointer', marginTop: '-5px', marginBottom: '20px' }} 
-            onClick={() => setIsForgotPassword(true)}
-          >
-            ¿Olvidaste tu contraseña?
-          </p>
-        )}
-
-        <button type="submit" style={{ width: '100%', padding: '12px', background: '#00458e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-          {isLogin ? 'Ingresar' : 'Crear Cuenta'}
-        </button>
-
-        <p style={{ textAlign: 'center', marginTop: '20px', cursor: 'pointer', color: '#00458e' }} onClick={() => setIsLogin(!isLogin)}>
-          {isLogin ? '¿No tienes cuenta? Regístrate aquí' : '¿Ya tienes cuenta? Conéctate'}
-        </p>
-      </form>
-    </div>
-  );
-}
+          <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#00458e' }}>Recuper
