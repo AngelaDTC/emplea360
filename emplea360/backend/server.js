@@ -3,7 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
-const https = require('https'); // 🔒 Módulo nativo ultra-compatible con Railway
+const https = require('https');
 
 const app = express();
 
@@ -19,15 +19,12 @@ const pool = new Pool({
 
 const codigosVerificacion = new Map();
 
-// Variables de entorno para UltraMsg o similar
 const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || ''; 
 const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || '';
 
 const esperarSegundos = (segundos) => new Promise(resolve => setTimeout(resolve, segundos * 1000));
 
-// 🔥 FUNCIÓN DE WHATSAPP OPTIMIZADA Y BLINDADA CONTRA CAÍDAS DE PORTO / URL
 async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
-    // 🛡️ Si la URL no está configurada en Railway, simula de fondo y evita que el servidor explote
     if (!WHATSAPP_API_URL || WHATSAPP_API_URL.trim() === '' || !WHATSAPP_API_TOKEN) {
         console.log(`[Simulación] Esperando 30 segundos para el número ${telefonoUsuario}...`);
         await esperarSegundos(30);
@@ -55,6 +52,7 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
             }
         };
 
+        // Corregido: Quitamos la asignación de variable innecesaria para pasar el Linter
         const reqHttp = https.request(WHATSAPP_API_URL, opciones, (resHttp) => {
             console.log(`🚀 [WhatsApp Real] Código de respuesta: ${resHttp.statusCode}`);
         });
@@ -71,21 +69,17 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
     }
 }
 
-// --- 🛡️ MIDDLEWARE DE AUTENTICACIÓN ---
 const verificarToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(403).json({ error: 'Token no provisto.' });
 
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) return res.status(401).json({ error: 'Token inválido o expirado.' });
-        req.usuarioId = decoded.id; // Guardamos el ID del usuario autenticado
+        req.usuarioId = decoded.id;
         next();
     });
 };
 
-// --- 🌐 ENDPOINTS DE AUTENTICACIÓN ---
-
-// 1. ENDPOINT DE REGISTRO
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
     try {
@@ -102,7 +96,6 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        // Corre en segundo plano asíncronamente sin demorar la respuesta de la API
         enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
         console.log(`\n🔑 [BACKEND LOG] Código generado para ${email}: ${codigo}\n`);
@@ -116,7 +109,6 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// 2. ENDPOINT DE VERIFICACIÓN DE REGISTRO
 app.post('/api/auth/verify-register', async (req, res) => {
     const { email, code } = req.body;
     try {
@@ -143,7 +135,6 @@ app.post('/api/auth/verify-register', async (req, res) => {
     }
 });
 
-// 3. ENDPOINT DE LOGIN
 app.post('/api/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     try {
@@ -171,7 +162,6 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// 4. RECUPERAR CONTRASEÑA
 app.post('/api/auth/forgot-password', async (req, res) => {
     const { email, telefono } = req.body;
     try {
@@ -187,9 +177,6 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 });
 
-// --- 💾 ENDPOINTS DE PERFIL ---
-
-// GUARDAR PERFIL COMPLETO
 app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     const { 
         perfil_candidato, 
@@ -256,7 +243,6 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     }
 });
 
-// 🌟 LEER EL PERFIL COMPLETO (ARREGLADO PARA INTEGRACIÓN DIRECTA DE NOMBRE)
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
         const resultado = await pool.query(
@@ -273,8 +259,6 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
         
         const perfilData = resultado.rows[0];
 
-        // Mapeamos explícitamente tanto 'nombre' como 'nombre_completo'
-        // Esto soluciona que el frontend reciba un valor vacío
         res.json({
             ...perfilData,
             nombre: perfilData.nombre_completo, 
@@ -287,4 +271,4 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor corriendo con éxito en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
