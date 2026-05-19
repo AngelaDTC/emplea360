@@ -66,14 +66,34 @@ const verificarToken = (req, res, next) => {
 
 // --- 🌐 ENDPOINTS DE AUTENTICACIÓN ---
 
-app.post('/api/auth/register', async (req, res) => {
-    const { email, password, telefono, rol, nombre } = req.body;
+app.post('/api/auth/login', async (req, res) => {
+    const { identifier, password } = req.body;
     try {
-        const existeUser = await pool.query('SELECT * FROM usuarios WHERE email = $1 OR telefono = $2', [email, telefono]);
-        if (existeUser.rows.length > 0) {
-            return res.status(400).json({ error: 'El email o el teléfono ya están registrados.' });
+        const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1 OR telefono = $2', [identifier, identifier]);
+        if (userRes.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+        const user = userRes.rows[0];
+        const validPassword = await bcrypt.compare(password, user.password_hash);
+        if (!validPassword) return res.status(401).json({ error: 'Contraseña incorrecta.' });
+
+        const token = jwt.sign({ id: user.id, rol: user.rol }, JWT_SECRET, { expiresIn: '24h' });
+        
+        // 🌟 NUEVO: Buscamos el nombre correspondiente al rol para devolverlo en el login
+        let nombre = '';
+        if (user.rol === 'candidato') {
+            const candRes = await pool.query('SELECT nombre_completo FROM candidatos WHERE usuario_id = $1', [user.id]);
+            if (candRes.rows.length > 0) nombre = candRes.rows[0].nombre_completo;
+        } else {
+            const empRes = await pool.query('SELECT nombre_empresa FROM empresas WHERE usuario_id = $1', [user.id]);
+            if (empRes.rows.length > 0) nombre = empRes.rows[0].nombre_empresa;
         }
 
+        // Ahora enviamos también el 'nombre' al frontend
+        res.json({ token, rol: user.rol, nombre });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
         const passwordHash = await bcrypt.hash(password, 10);
         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
         
