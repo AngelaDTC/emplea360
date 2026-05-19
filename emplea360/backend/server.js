@@ -66,7 +66,7 @@ const verificarToken = (req, res, next) => {
 
 // --- 🌐 ENDPOINTS DE AUTENTICACIÓN ---
 
-// 1. ENDPOINT DE REGISTRO (ARREGLADO Y COMPLETO)
+// 1. ENDPOINT DE REGISTRO
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
     try {
@@ -83,6 +83,8 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
+        // 🔥 OPTIMIZACIÓN: Se quita el await para que el registro responda de inmediato 
+        // y la demora de 30s de WhatsApp ocurra en segundo plano de manera asíncrona.
         enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
         console.log(`\n🔑 [BACKEND LOG] Código generado para ${email}: ${codigo}\n`);
@@ -123,7 +125,7 @@ app.post('/api/auth/verify-register', async (req, res) => {
     }
 });
 
-// 3. ENDPOINT DE LOGIN (CORREGIDO CON LA BÚSQUEDA DE NOMBRE)
+// 3. ENDPOINT DE LOGIN
 app.post('/api/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     try {
@@ -136,7 +138,6 @@ app.post('/api/auth/login', async (req, res) => {
 
         const token = jwt.sign({ id: user.id, rol: user.rol }, JWT_SECRET, { expiresIn: '24h' });
         
-        // Buscamos el nombre guardado según el rol para pasarlo al Frontend
         let nombre = '';
         if (user.rol === 'candidato') {
             const candRes = await pool.query('SELECT nombre_completo FROM candidatos WHERE usuario_id = $1', [user.id]);
@@ -237,7 +238,7 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     }
 });
 
-// LEER EL PERFIL COMPLETO
+// 🔥 LEER EL PERFIL COMPLETO (ARREGLADO PARA EL NOMBRE)
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
         const resultado = await pool.query(
@@ -252,7 +253,16 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
             return res.status(404).json({ error: 'Candidato no encontrado.' });
         }
         
-        res.json(resultado.rows[0]);
+        const perfilData = resultado.rows[0];
+
+        // 🌟 ENVIAMOS EL NOMBRE EN FORMATO CamelCase COMPATIBLE CON EL FRONTEND
+        // Así nos aseguramos de que 'nombre' y 'nombre_completo' existan sí o sí.
+        res.json({
+            ...perfilData,
+            nombre: perfilData.nombre_completo, 
+            nombre_completo: perfilData.nombre_completo
+        });
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
