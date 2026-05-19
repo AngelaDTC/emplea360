@@ -1,3 +1,66 @@
+import React, { useEffect, useState } from 'react';
+
+export default function DashboardCandidato() {
+  // 1. Creamos un estado que por defecto tenga la palabra "Candidato"
+  const [nombre, setNombre] = useState('Candidato');
+
+  useEffect(() => {
+    // 2. Al cargar la pantalla, leemos el nombre guardado en la memoria local
+    const nombreGuardado = localStorage.getItem('usuario_nombre');
+    if (nombreGuardado) {
+      setNombre(nombreGuardado); // Cambiará "Candidato" por "ANGELA TAPIAS"
+    }
+  }, []);
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
+      
+      {/* BARRA LATERAL OSCURA (SIDEBAR) */}
+      <div style={{ width: '260px', backgroundColor: '#0c1a30', color: '#fff', padding: '25px 20px' }}>
+        
+        {/* LOGO SUPERIOR */}
+        <h2 style={{ color: '#00b4d8', fontSize: '22px', margin: '0 0 25px 0', textAlign: 'center', fontWeight: 'bold' }}>
+          Emplea 360
+        </h2>
+
+        {/* CONTENEDOR DE PERFIL */}
+        <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+          {/* Tu imagen de perfil circular actual */}
+          <div style={{ width: '70px', height: '70px', borderRadius: '50%', margin: '0 auto 12px auto', overflow: 'hidden' }}>
+            <img src="RUTADE_TU_IMAGEN_O_ICONO" style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Perfil" />
+          </div>
+
+          {/* 🌟 AQUÍ SE MUESTRA EL NOMBRE DINÁMICO */}
+          <h3 style={{ margin: 0, fontSize: '16px', color: '#00b4d8', fontWeight: 'bold' }}>
+            {nombre}
+          </h3>
+          
+          <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+            Panel Candidato
+          </p>
+        </div>
+
+        {/* BOTONES DEL MENÚ */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ padding: '12px', backgroundColor: '#00b4d8', borderRadius: '8px', color: '#fff' }}>
+            📄 Carga y Optimización CV
+          </div>
+          <div style={{ padding: '12px', color: '#cbd5e1' }}>📝 Datos y Estructura CV</div>
+          <div style={{ padding: '12px', color: '#cbd5e1' }}>💼 Documentos Generados</div>
+          <div style={{ padding: '12px', color: '#cbd5e1' }}>📊 Entrevistas</div>
+        </div>
+
+      </div>
+
+      {/* SECCIÓN BLANCA DERECHA */}
+      <div style={{ flex: 1, backgroundColor: '#f8fafc', padding: '40px' }}>
+        <h2>Optimización Inteligente</h2>
+        {/* Aquí mantienes tus componentes actuales para subir la foto y el currículum */}
+      </div>
+
+    </div>
+  );
+}
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
