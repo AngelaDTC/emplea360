@@ -42,26 +42,33 @@ export default function DashboardCandidato() {
   // ==========================================
   // 🔑 EXTRAER EL NOMBRE DEL REGISTRO AUTOMÁTICAMENTE
   // ==========================================
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        // Decodificamos la parte central (payload) del JWT Token de forma nativa
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const datosDecodificados = JSON.parse(window.atob(base64));
-        
-        // Si en tu backend al loguear/registrar guardaste el nombre en 'nombre', lo toma de ahí
-        if (datosDecodificados.nombre) {
-          setNombreUsuario(datosDecodificados.nombre);
-        } else if (datosDecodificados.username) {
-          setNombreUsuario(datosDecodificados.username);
-        }
-      } catch (error) {
-        console.error("Error al decodificar el nombre del token:", error);
+ useEffect(() => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const datosDecodificados = JSON.parse(window.atob(base64));
+      
+      // 👁️ ESTO TE VA A MOSTRAR EN LA CONSOLA DEL NAVEGADOR QUÉ TIENE TU TOKEN:
+      console.log("🔍 Datos reales dentro de tu token:", datosDecodificados);
+
+      // Revisamos variantes comunes de nombres de variables:
+      if (datosDecodificados.nombre) {
+        setNombreUsuario(datosDecodificados.nombre);
+      } else if (datosDecodificados.nombre_completo) {
+        setNombreUsuario(datosDecodificados.nombre_completo);
+      } else if (datosDecodificados.username) {
+        setNombreUsuario(datosDecodificados.username);
+      } else if (datosDecodificados.email) {
+        // Si no encontrás el nombre por ningún lado, usamos la primera parte del email
+        setNombreUsuario(datosDecodificados.email.split('@')[0]);
       }
+    } catch (error) {
+      console.error("Error al decodificar el nombre del token:", error);
     }
-  }, []);
+  }
+}, []);
 
   // ==========================================
   // 🔥 FUNCIÓN DE PERSISTENCIA REAL EN LA NUBE
