@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
+const https = require('https'); // 🔒 Usamos el módulo nativo de Node.js para evitar errores de fetch
 
 const app = express();
 
@@ -37,18 +38,35 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
 
     try {
         await esperarSegundos(30);
-        await fetch(WHATSAPP_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                token: WHATSAPP_API_TOKEN,
-                to: numeroDestino,
-                body: mensaje
-            })
+
+        // 🛠️ CONFIGURACIÓN SEGURA CON HTTPS NATIVO (REEMPLAZO DE FETCH)
+        const cuerpoDatos = JSON.stringify({
+            token: WHATSAPP_API_TOKEN,
+            to: numeroDestino,
+            body: mensaje
         });
-        console.log(`🚀 [WhatsApp Real] Despachado tras 30s a ${numeroDestino}`);
+
+        const opciones = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(cuerpoDatos)
+            }
+        };
+
+        const reqHttp = https.request(WHATSAPP_API_URL, opciones, (resHttp) => {
+            console.log(`🚀 [WhatsApp Real] Código de respuesta: ${resHttp.statusCode}`);
+        });
+
+        reqHttp.on('error', (error) => {
+            console.error("Error en envío externo de WhatsApp:", error.message);
+        });
+
+        reqHttp.write(cuerpoDatos);
+        reqHttp.end();
+
     } catch (error) {
-        console.error("Error en envío externo:", error.message);
+        console.error("Error en bloque de envío externo:", error.message);
     }
 }
 
@@ -83,8 +101,7 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        // 🔥 OPTIMIZACIÓN: Se quita el await para que el registro responda de inmediato 
-        // y la demora de 30s de WhatsApp ocurra en segundo plano de manera asíncrona.
+        // Corre en segundo plano de manera asíncrona
         enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
         console.log(`\n🔑 [BACKEND LOG] Código generado para ${email}: ${codigo}\n`);
@@ -227,46 +244,4 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
             return res.status(404).json({ error: "Perfil de candidato no encontrado." });
         }
 
-        res.status(200).json({ 
-            mensaje: "🔒 Perfil completo respaldado permanentemente en PostgreSQL.",
-            candidato: resultado.rows[0] 
-        });
-
-    } catch (error) {
-        console.error("Error crítico al guardar el perfil en la base de datos:", error);
-        res.status(500).json({ error: "Error interno del servidor al procesar la persistencia." });
-    }
-});
-
-// 🔥 LEER EL PERFIL COMPLETO (ARREGLADO PARA EL NOMBRE)
-app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
-    try {
-        const resultado = await pool.query(
-            `SELECT c.*, u.email 
-             FROM candidatos c
-             INNER JOIN usuarios u ON c.usuario_id = u.id
-             WHERE c.usuario_id = $1`, 
-            [req.usuarioId]
-        );
-        
-        if (resultado.rows.length === 0) {
-            return res.status(404).json({ error: 'Candidato no encontrado.' });
-        }
-        
-        const perfilData = resultado.rows[0];
-
-        // 🌟 ENVIAMOS EL NOMBRE EN FORMATO CamelCase COMPATIBLE CON EL FRONTEND
-        // Así nos aseguramos de que 'nombre' y 'nombre_completo' existan sí o sí.
-        res.json({
-            ...perfilData,
-            nombre: perfilData.nombre_completo, 
-            nombre_completo: perfilData.nombre_completo
-        });
-
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+        res.status(200).
