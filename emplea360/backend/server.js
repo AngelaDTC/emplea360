@@ -221,11 +221,25 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     }
 });
 
-// --- 📑 ENDPOINT PARA LEER EL PERFIL AL INICIAR EL DASHBOARD ---
+// --- 📑 ENDPOINT PARA LEER EL PERFIL AL INICIAR EL DASHBOARD (CORREGIDO) ---
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
-        const resultado = await pool.query('SELECT * FROM candidatos WHERE usuario_id = $1', [req.usuarioId]);
-        if (resultado.rows.length === 0) return res.status(404).json({ error: 'Candidato no encontrado.' });
+        // Hacemos un JOIN para asegurarnos de traer los datos del candidato 
+        // y por si acaso el email o datos de la tabla de usuarios vinculada.
+        const resultado = await pool.query(
+            `SELECT c.*, u.email 
+             FROM candidatos c
+             INNER JOIN usuarios u ON c.usuario_id = u.id
+             WHERE c.usuario_id = $1`, 
+            [req.usuarioId]
+        );
+        
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({ error: 'Candidato no encontrado.' });
+        }
+        
+        // Enviamos todo el registro. Asegurate de que en tu base de datos 
+        // la columna se llame 'nombre_completo'
         res.json(resultado.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
