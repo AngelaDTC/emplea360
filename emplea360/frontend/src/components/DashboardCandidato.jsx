@@ -57,6 +57,48 @@ export default function DashboardCandidato() {
             'Authorization': `Bearer ${token}`
           }
         });
+        import React, { useEffect, useState } from 'react';
+
+export default function DashboardCandidato() {
+  // Creamos el estado para controlar el nombre dinámico
+  const [nombreUsuario, setNombreUsuario] = useState('Candidato');
+
+  useEffect(() => {
+    // 🌟 LEER EL NOMBRE: Buscamos lo que guardamos en el Login/Registro
+    const nombreGuardado = localStorage.getItem('usuario_nombre');
+    
+    if (nombreGuardado) {
+      setNombreUsuario(nombreGuardado); // Aquí pasará a decir "ANGELA TAPIAS"
+    }
+  }, []);
+
+  return (
+    <div style={{ display: 'flex', height: '100vh' }}>
+      {/* MENÚ LATERAL */}
+      <div style={{ width: '260px', backgroundColor: '#0c1a30', color: '#fff', padding: '20px' }}>
+        
+        {/* SECCIÓN DEL PERFIL */}
+        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+          <div style={{ width: '65px', height: '65px', borderRadius: '50%', backgroundColor: '#1e293b', margin: '0 auto 10px auto' }}></div>
+          
+          {/* 🔥 AQUÍ SE IMPRIME EL NOMBRE EN LUGAR DE LA PALABRA FIJA */}
+          <h3 style={{ margin: 0, fontSize: '16px', color: '#00b4d8', fontWeight: 'bold' }}>
+            {nombreUsuario}
+          </h3>
+          
+          <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>Panel Candidato</p>
+        </div>
+
+        {/* ... Resto de tus opciones de menú ... */}
+      </div>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <div style={{ flex: 1, padding: '40px' }}>
+        <h2>Optimización Inteligente</h2>
+      </div>
+    </div>
+  );
+}
 
         if (respuesta.ok) {
           const datos = await respuesta.json();
