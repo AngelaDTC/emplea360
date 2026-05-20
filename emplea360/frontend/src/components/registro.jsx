@@ -8,7 +8,7 @@ export default function RegisterPage() {
     // Estados del formulario de registro
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [telefono, setTelefono] = useState('');
+    const [telefono, setTelefono] = useState('+54');
     const [nombre, setNombre] = useState('');
     
     // Estados del flujo de verificación
@@ -136,9 +136,36 @@ export default function RegisterPage() {
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>Número de Celular</label>
-                            <input type="tel" required value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Ej: +541123456789" style={inputStyle} />
-                        </div>
+    <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>
+        Número de Celular
+    </label>
+    <input 
+        type="tel" 
+        required 
+        value={telefono} 
+        onChange={(e) => {
+            const valor = e.target.value;
+            // Evita que el usuario borre el prefijo +54
+            if (valor.startsWith('+54')) {
+                setTelefono(valor);
+            } else if (valor.length < 3) {
+                setTelefono('+54');
+            }
+        }} 
+        placeholder="+54 9 11 ..." 
+        style={{
+            width: '100%', 
+            padding: '12px 14px', 
+            borderRadius: '8px', 
+            border: '1px solid #334155',
+            backgroundColor: '#0f172a', 
+            color: '#f8fafc', 
+            fontSize: '15px', 
+            outline: 'none', 
+            boxSizing: 'border-box'
+        }} 
+    />
+</div>
 
                         <div style={{ marginBottom: '24px' }}>
                             <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>Contraseña</label>
