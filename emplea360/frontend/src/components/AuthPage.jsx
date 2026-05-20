@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 export default function AuthPage({ onLogin }) {
     const navigate = useNavigate();
     
-    // 🌐 URL de tu servidor Railway
-    const URL_BACKEND = 'https://emplea360-production.up.railway.app';
+    // 🌐 URL REAL Y CORREGIDA DE TU SERVIDOR (Con el identificador único)
+    const URL_BACKEND = 'https://emplea360-production-517a.up.railway.app';
 
     // 🔄 Estado de la pestaña: 'login' o 'registro'
     const [modo, setModo] = useState('login'); 
@@ -22,8 +22,8 @@ export default function AuthPage({ onLogin }) {
     const [nombre, setNombre] = useState('');
     const [regEmail, setRegEmail] = useState('');
     const [regPassword, setRegPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState(''); // 🔑 Nueva casilla de confirmación
-    const [telefono, setTelefono] = useState('+54'); // 🇦🇷 Prefijo de Argentina fijo inicial
+    const [confirmPassword, setConfirmPassword] = useState(''); // Contraseña repetida
+    const [telefono, setTelefono] = useState('+54'); // 🇦🇷 Prefijo de Argentina fijo
 
     // 🔄 Estados de la verificación OTP por WhatsApp
     const [pasoVerificacion, setPasoVerificacion] = useState(false);
@@ -46,7 +46,7 @@ export default function AuthPage({ onLogin }) {
             const data = await res.json();
 
             if (res.ok) {
-                // Sincronizamos sesión con App.jsx
+                // Sincronizamos sesión guardando el nombre para el perfil
                 onLogin(data.token, data.rol, data.nombre || data.nombre_completo);
                 navigate('/dashboard');
             } else {
@@ -59,12 +59,12 @@ export default function AuthPage({ onLogin }) {
         }
     };
 
-    // 🚀 REGISTRO PASO 1: Validar contraseñas, enviar datos y despachar código OTP
+    // 🚀 REGISTRO PASO 1: Enviar datos a Railway y esperar el código OTP
     const handleRegisterSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        // 🌟 VALIDACIÓN DE DOBLE CASILLERO
+        // Validación visual de contraseñas idénticas
         if (regPassword !== confirmPassword) {
             setError('Las contraseñas ingresadas no coinciden. Verificá los campos.');
             return;
@@ -94,13 +94,14 @@ export default function AuthPage({ onLogin }) {
                 setError(data.error || 'Error al procesar el registro.');
             }
         } catch (err) {
-            setError('Error de comunicación con el servidor.');
+            console.error(err);
+            setError('Error de comunicación con el servidor. Revisá la conexión.');
         } finally {
             setCargando(false);
         }
     };
 
-    // 🔐 REGISTRO PASO 2: Validar el código OTP y activar la cuenta
+    // 🔐 REGISTRO PASO 2: Confirmar token y dar de alta el perfil en la base de datos
     const handleVerifySubmit = async (e) => {
         e.preventDefault();
         setCargando(true);
@@ -115,7 +116,6 @@ export default function AuthPage({ onLogin }) {
 
             if (res.ok) {
                 alert('¡Cuenta activada con éxito! Ya podés ingresar.');
-                // Limpiamos los campos y volvemos al login de forma fluida
                 setPasoVerificacion(false);
                 setConfirmPassword('');
                 setRegPassword('');
@@ -135,7 +135,7 @@ export default function AuthPage({ onLogin }) {
         <div style={containerStyle}>
             <div style={cardStyle}>
                 
-                {/* BRANDING DINÁMICO */}
+                {/* BRANDING */}
                 <div style={{ marginBottom: '28px' }}>
                     <div style={{ 
                         ...logoStyle, 
@@ -154,7 +154,7 @@ export default function AuthPage({ onLogin }) {
 
                 {error && <div style={errorStyle}>⚠️ {error}</div>}
 
-                {/* 1. FORMULARIO MODO LOGIN */}
+                {/* LOGIN */}
                 {modo === 'login' && (
                     <form onSubmit={handleLoginSubmit} style={{ textAlign: 'left' }}>
                         <div style={{ marginBottom: '16px' }}>
@@ -171,7 +171,7 @@ export default function AuthPage({ onLogin }) {
                     </form>
                 )}
 
-                {/* 2. FORMULARIO MODO REGISTRO (Paso 1: Datos y doble contraseña) */}
+                {/* REGISTRO DATA */}
                 {modo === 'registro' && !pasoVerificacion && (
                     <form onSubmit={handleRegisterSubmit} style={{ textAlign: 'left' }}>
                         <div style={{ marginBottom: '16px' }}>
@@ -201,7 +201,6 @@ export default function AuthPage({ onLogin }) {
                             <label style={labelStyle}>Contraseña</label>
                             <input type="password" required value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="Mínimo 6 caracteres" style={inputStyle} />
                         </div>
-                        {/* 🌟 NUEVO SEGUNDO CASILLERO DE CONFIRMACIÓN */}
                         <div style={{ marginBottom: '28px' }}>
                             <label style={labelStyle}>Confirmar Contraseña</label>
                             <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repetí tu contraseña" style={inputStyle} />
@@ -212,12 +211,12 @@ export default function AuthPage({ onLogin }) {
                     </form>
                 )}
 
-                {/* 3. FORMULARIO MODO REGISTRO (Paso 2: OTP) */}
+                {/* REGISTRO OTP */}
                 {modo === 'registro' && pasoVerificacion && (
                     <form onSubmit={handleVerifySubmit} style={{ textAlign: 'left' }}>
                         {bypassCode && (
                             <div style={infoBoxStyle}>
-                                💡 Código de desarrollo: <strong>{bypassCode}</strong>
+                                💡 Código de desarrollo recibido: <strong>{bypassCode}</strong>
                             </div>
                         )}
                         <div style={{ marginBottom: '24px' }}>
@@ -230,7 +229,7 @@ export default function AuthPage({ onLogin }) {
                     </form>
                 )}
 
-                {/* INTERRUPTOR DE CAMBIO ENTRE LOGIN Y REGISTRO */}
+                {/* SELECTOR DE MODO */}
                 <div style={{ marginTop: '24px', borderTop: '1px solid #334155', paddingTop: '16px' }}>
                     {modo === 'login' ? (
                         <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8' }}>
@@ -254,10 +253,10 @@ export default function AuthPage({ onLogin }) {
     );
 }
 
-// Estilos estables en memoria embebidos
+// Estilos encapsulados
 const containerStyle = { display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', fontFamily: '"Segoe UI", Roboto, sans-serif', padding: '20px', boxSizing: 'border-box' };
-const cardStyle = { width: '100%', maxWidth: '420px', backgroundColor: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '40px', borderRadius: '20px', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', textAlign: 'center', transition: 'all 0.3s ease' };
-const logoStyle = { width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', color: '#fff', margin: '0 auto 12px auto', transition: 'all 0.3s ease' };
+const cardStyle = { width: '100%', maxWidth: '420px', backgroundColor: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '40px', borderRadius: '20px', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', textAlign: 'center' };
+const logoStyle = { width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', color: '#fff', margin: '0 auto 12px auto' };
 const titleStyle = { color: '#f8fafc', margin: '0 0 6px 0', fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px' };
 const subtitleStyle = { margin: 0, fontSize: '14px', color: '#94a3b8' };
 const labelStyle = { display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 };
