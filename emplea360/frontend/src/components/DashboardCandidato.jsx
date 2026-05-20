@@ -5,7 +5,7 @@ export default function DashboardCandidato() {
     const navigate = useNavigate();
 
     // 🌐 URL de tu backend en Railway
-    const URL_BACKEND = 'https://emplea360-production.up.railway.app';
+    const URL_BACKEND = 'https://emplea360-production-517a.up.railway.app';
 
     // 💾 DECLARACIÓN DE ESTADOS LIMPIOS
     const [activeTab, setActiveTab] = useState('perfil');
