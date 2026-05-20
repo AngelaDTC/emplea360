@@ -1,18 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { jsPDF } from 'jspdf';
-import { 
-  User, FileText, Calendar, BookOpen, BarChart2, MessageSquare, 
-  Upload, Download, Plus, Sparkles, Clock 
-} from 'lucide-react';
-
-export default function DashboardCandidato() {
-  const navigate = useNavigate();
-  const URL_BACKEND = 'https://emplea360-production-517a.up.railway.app';
-
-  // 1. Estados de Navegación del Menú Lateral
-  const [seccionActiva, setSeccionActiva] = useState('perfil'); 
-
+// 1. Estados de Carga y Datos del Candidato (CON SUS MODIFICADORES)
+  const [cvFile, setCvFile] = useState(null);
+  const [previewFoto, setPreviewFoto] = useState(null);
+  const [atsScore, setAtsScore] = useState(null);
+  const [tieneCambiosSinGuardar, setTieneCambiosSinGuardar] = useState(false);
+  const [guardando, setGuardando] = useState(false);
   // 2. Estados de Carga y Datos del Candidato
   const [cargando, setCargando] = useState(false);
   const [nombreUsuario, setNombreUsuario] = useState(
