@@ -18,9 +18,9 @@ const pool = new Pool({
 
 const codigosVerificacion = new Map();
 
-// Simulación de WhatsApp limpia para evitar bloqueos del Linter
+// Simulación limpia de WhatsApp sin dependencias externas conflictivas
 async function enviarWhatsAppRealConDemora(telefono, nombre, codigo) {
-    console.log(`[Simulación WhatsApp] Mensaje para ${telefono} (${nombre}): Código ${codigo}`);
+    console.log(`[WhatsApp] Mensaje simulado para ${telefono} (${nombre}): Código ${codigo}`);
     return new Promise(resolve => setTimeout(resolve, 500));
 }
 
@@ -134,7 +134,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 });
 
-// 📝 GUARDAR Y ACTUALIZAR PERFIL (Sintaxis reparada y blindada)
+// 📝 GUARDAR Y ACTUALIZAR PERFIL 
 app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     const { perfil_candidato, carta_presentacion } = req.body;
     try {
@@ -153,7 +153,7 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     }
 });
 
-// 👤 LEER PERFIL COMPLETO (Sincronizado con el Front para traer el nombre)
+// 👤 LEER PERFIL COMPLETO (Envía el nombre de forma explícita al Front)
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
         const resultado = await pool.query(
@@ -175,4 +175,4 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
