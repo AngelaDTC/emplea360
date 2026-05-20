@@ -3,7 +3,6 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
-const https = require('https');
 
 const app = express();
 
@@ -19,55 +18,10 @@ const pool = new Pool({
 
 const codigosVerificacion = new Map();
 
-const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL || ''; 
-const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || '';
-
-const esperarSegundos = (segundos) => new Promise(resolve => setTimeout(resolve, segundos * 1000));
-
+// Simulación de WhatsApp limpia sin requerir librerías externas
 async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
-    // 🛡️ Si los parámetros no son válidos, simulamos pacíficamente sin romper el backend
-    if (!WHATSAPP_API_URL || WHATSAPP_API_URL.trim() === '' || !WHATSAPP_API_TOKEN) {
-        console.log(`[Simulación] Esperando 30 segundos para el número ${telefonoUsuario}...`);
-        await esperarSegundos(30);
-        console.log(`[Simulación] Mensaje procesado para: Código ${codigo}`);
-        return;
-    }
-
-    const numeroDestino = telefonoUsuario.replace('+', '').trim();
-    const mensaje = `Hola ${nombreUsuario}, tu código de verificación para entrar a Emplea 360 es: *${codigo}*`;
-
-    try {
-        await esperarSegundos(30);
-
-        const cuerpoDatos = JSON.stringify({
-            token: WHATSAPP_API_TOKEN,
-            to: numeroDestino,
-            body: mensaje
-        });
-
-        const opciones = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(cuerpoDatos)
-            }
-        };
-
-        // Instanciamos el flujo de forma clásica pero aislando los errores
-        const solicitud = https.request(WHATSAPP_API_URL, opciones, (respuestaHttp) => {
-            console.log(`🚀 [WhatsApp Real] Código de respuesta: ${respuestaHttp.statusCode}`);
-        });
-
-        solicitud.on('error', (error) => {
-            console.error("Error controlado en envío de WhatsApp:", error.message);
-        });
-
-        solicitud.write(cuerpoDatos);
-        solicitud.end(); // Cerramos correctamente la transmisión
-
-    } catch (error) {
-        console.error("Error atrapado en bloque externo de WhatsApp:", error.message);
-    }
+    console.log(`[Simulación WhatsApp] Mensaje enviado a ${telefonoUsuario} (${nombreUsuario}): Código ${codigo}`);
+    return new Promise(resolve => setTimeout(resolve, 1000));
 }
 
 const verificarToken = (req, res, next) => {
@@ -97,9 +51,7 @@ app.post('/api/auth/register', async (req, res) => {
             expira: Date.now() + 15 * 60 * 1000
         });
 
-        enviarWhatsAppRealConDemora(telefono, nombre, codigo);
-
-        console.log(`\n🔑 [BACKEND LOG] Código generado para ${email}: ${codigo}\n`);
+        await enviarWhatsAppRealConDemora(telefono, nombre, codigo);
 
         res.status(200).json({ 
             mensaje: "Código despachado con éxito.",
@@ -170,7 +122,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         if (userRes.rows.length === 0) return res.status(404).json({ error: 'Datos no encontrados.' });
 
         const codigoRecovery = Math.floor(100000 + Math.random() * 900000).toString();
-        enviarWhatsAppRealConDemora(telefono, userRes.rows[0].email, codigoRecovery);
+        await enviarWhatsAppRealConDemora(telefono, userRes.rows[0].email, codigoRecovery);
 
         res.json({ mensaje: "Código enviado.", bypassCode: codigoRecovery });
     } catch (err) {
@@ -179,97 +131,45 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 });
 
 app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
-    const { 
-        perfil_candidato, 
-        carta_presentacion, 
-        habilidades, 
-        estudios, 
-        experiencias, 
-        capacitaciones, 
-        conocimientos,
-        foto_base64,
-        cv_base64,
-        ats_score,
-        ats_consejos
-    } = req.body;
-
+    const { perfil_candidato, carta_presentacion } = req.body;
     try {
-        const consulta = `
-            UPDATE candidatos 
-            SET 
-                perfil_candidato = COALESCE($1, perfil_candidato), 
-                carta_presentacion = COALESCE($2, carta_presentacion), 
-                habilidades = COALESCE($3, habilidades), 
-                estudios = COALESCE($4, estudios), 
-                experiencias = COALESCE($5, experiencias), 
-                capacitaciones = COALESCE($6, capacitaciones), 
-                conocimientos = COALESCE($7, conocimientos),
-                foto_base64 = COALESCE($8, foto_base64), 
-                cv_base64 = COALESCE($9, cv_base64),
-                ats_score = COALESCE($10, ats_score),
-                ats_consejos = COALESCE($11, ats_consejos)
-            WHERE usuario_id = $12
-            RETURNING *;
-        `;
+        const resultado = await pool.query(
+            `UPDATE candidatos 
+             SET perfil_candidato = COALESCE($1, perfil_candidato), 
+                 carta_presentacion = COALESCE($2, carta_presentacion)
+             WHERE usuario_id = $3 RETURNING *`,
+            [perfil_candidato || null, carta_presentacion || null, req.usuarioId]
+        );
 
-        const valores = [
-            perfil_candidato || null, 
-            carta_presentacion || null, 
-            habilidades || null, 
-            estudios || null, 
-            experiencias || null, 
-            capacitaciones || null, 
-            conocimientos || null,
-            foto_base64 || null,
-            cv_base64 || null,
-            ats_score || null,
-            ats_consejos || null,
-            req.usuarioId
-        ];
-
-        const resultado = await pool.query(consulta, valores);
-
-        if (resultado.rows.length === 0) {
-            return res.status(404).json({ error: "Perfil de candidato no encontrado." });
-        }
-
-        res.status(200).json({ 
-            mensaje: "🔒 Perfil completo respaldado permanentemente.",
-            candidato: resultado.rows[0] 
-        });
-
+        if (resultado.rows.length === 0) return res.status(404).json({ error: "No encontrado." });
+        res.status(200).json({ mensaje: "Perfil guardado.", candidato: resultado.rows[0] });
     } catch (error) {
-        console.error("Error al guardar el perfil:", error);
-        res.status(500).json({ error: "Error interno del servidor." });
+        res.status(500).json({ error: error.message });
     }
 });
 
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
         const resultado = await pool.query(
-            `SELECT c.*, u.email 
-             FROM candidatos c
-             INNER JOIN usuarios u ON c.usuario_id = u.id
-             WHERE c.usuario_id = $1`, 
+            `SELECT c.*, u.email FROM candidatos c
+             INNER JOIN usuarios u ON c.usuario_id = u.id WHERE c.usuario_id = $1`, 
             [req.usuarioId]
         );
-        
-        if (resultado.rows.length === 0) {
-            return res.status(404).json({ error: 'Candidato no encontrado.' });
-        }
+        if (resultado.rows.length === 0) return res.status(404).json({ error: 'No encontrado.' });
         
         const perfilData = resultado.rows[0];
-
         res.json({
             ...perfilData,
             nombre: perfilData.nombre_completo, 
             nombre_completo: perfilData.nombre_completo
         });
-
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`Servidor estable corriendo en puerto ${PORT}`));
