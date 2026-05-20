@@ -22,7 +22,8 @@ export default function AuthPage({ onLogin }) {
     const [nombre, setNombre] = useState('');
     const [regEmail, setRegEmail] = useState('');
     const [regPassword, setRegPassword] = useState('');
-    const [telefono, setTelefono] = useState('+54'); // 🇦🇷 Prefijo fijo inicial
+    const [confirmPassword, setConfirmPassword] = useState(''); // 🔑 Nueva casilla de confirmación
+    const [telefono, setTelefono] = useState('+54'); // 🇦🇷 Prefijo de Argentina fijo inicial
 
     // 🔄 Estados de la verificación OTP por WhatsApp
     const [pasoVerificacion, setPasoVerificacion] = useState(false);
@@ -45,7 +46,7 @@ export default function AuthPage({ onLogin }) {
             const data = await res.json();
 
             if (res.ok) {
-                // Mandamos token, rol y nombre al App.jsx
+                // Sincronizamos sesión con App.jsx
                 onLogin(data.token, data.rol, data.nombre || data.nombre_completo);
                 navigate('/dashboard');
             } else {
@@ -58,11 +59,18 @@ export default function AuthPage({ onLogin }) {
         }
     };
 
-    // 🚀 REGISTRO PASO 1: Enviar datos y recibir token OTP simulado
+    // 🚀 REGISTRO PASO 1: Validar contraseñas, enviar datos y despachar código OTP
     const handleRegisterSubmit = async (e) => {
         e.preventDefault();
-        setCargando(true);
         setError('');
+
+        // 🌟 VALIDACIÓN DE DOBLE CASILLERO
+        if (regPassword !== confirmPassword) {
+            setError('Las contraseñas ingresadas no coinciden. Verificá los campos.');
+            return;
+        }
+
+        setCargando(true);
 
         try {
             const res = await fetch(`${URL_BACKEND}/api/auth/register`, {
@@ -107,8 +115,10 @@ export default function AuthPage({ onLogin }) {
 
             if (res.ok) {
                 alert('¡Cuenta activada con éxito! Ya podés ingresar.');
-                // Reseteamos estados y pasamos al Login limpio
+                // Limpiamos los campos y volvemos al login de forma fluida
                 setPasoVerificacion(false);
+                setConfirmPassword('');
+                setRegPassword('');
                 setModo('login');
             } else {
                 const data = await res.json().catch(() => ({}));
@@ -144,7 +154,7 @@ export default function AuthPage({ onLogin }) {
 
                 {error && <div style={errorStyle}>⚠️ {error}</div>}
 
-                {/* 1. MODO LOGIN */}
+                {/* 1. FORMULARIO MODO LOGIN */}
                 {modo === 'login' && (
                     <form onSubmit={handleLoginSubmit} style={{ textAlign: 'left' }}>
                         <div style={{ marginBottom: '16px' }}>
@@ -161,7 +171,7 @@ export default function AuthPage({ onLogin }) {
                     </form>
                 )}
 
-                {/* 2. MODO REGISTRO (Paso 1: Datos) */}
+                {/* 2. FORMULARIO MODO REGISTRO (Paso 1: Datos y doble contraseña) */}
                 {modo === 'registro' && !pasoVerificacion && (
                     <form onSubmit={handleRegisterSubmit} style={{ textAlign: 'left' }}>
                         <div style={{ marginBottom: '16px' }}>
@@ -187,9 +197,14 @@ export default function AuthPage({ onLogin }) {
                                 style={inputStyle} 
                             />
                         </div>
-                        <div style={{ marginBottom: '24px' }}>
+                        <div style={{ marginBottom: '16px' }}>
                             <label style={labelStyle}>Contraseña</label>
-                            <input type="password" required value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
+                            <input type="password" required value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="Mínimo 6 caracteres" style={inputStyle} />
+                        </div>
+                        {/* 🌟 NUEVO SEGUNDO CASILLERO DE CONFIRMACIÓN */}
+                        <div style={{ marginBottom: '28px' }}>
+                            <label style={labelStyle}>Confirmar Contraseña</label>
+                            <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repetí tu contraseña" style={inputStyle} />
                         </div>
                         <button type="submit" disabled={cargando} style={{ ...btnStyle, backgroundColor: '#10b981' }}>
                             {cargando ? 'Enviando código...' : 'Registrarme'}
@@ -197,7 +212,7 @@ export default function AuthPage({ onLogin }) {
                     </form>
                 )}
 
-                {/* 3. MODO REGISTRO (Paso 2: OTP) */}
+                {/* 3. FORMULARIO MODO REGISTRO (Paso 2: OTP) */}
                 {modo === 'registro' && pasoVerificacion && (
                     <form onSubmit={handleVerifySubmit} style={{ textAlign: 'left' }}>
                         {bypassCode && (
@@ -215,7 +230,7 @@ export default function AuthPage({ onLogin }) {
                     </form>
                 )}
 
-                {/* INTERRUPTOR DE CAMBIO FLUIDO */}
+                {/* INTERRUPTOR DE CAMBIO ENTRE LOGIN Y REGISTRO */}
                 <div style={{ marginTop: '24px', borderTop: '1px solid #334155', paddingTop: '16px' }}>
                     {modo === 'login' ? (
                         <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8' }}>
@@ -239,14 +254,14 @@ export default function AuthPage({ onLogin }) {
     );
 }
 
-// Stylesheets integrados en cascada para evitar dependencias
+// Estilos estables en memoria embebidos
 const containerStyle = { display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', fontFamily: '"Segoe UI", Roboto, sans-serif', padding: '20px', boxSizing: 'border-box' };
 const cardStyle = { width: '100%', maxWidth: '420px', backgroundColor: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '40px', borderRadius: '20px', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', textAlign: 'center', transition: 'all 0.3s ease' };
 const logoStyle = { width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', color: '#fff', margin: '0 auto 12px auto', transition: 'all 0.3s ease' };
 const titleStyle = { color: '#f8fafc', margin: '0 0 6px 0', fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px' };
 const subtitleStyle = { margin: 0, fontSize: '14px', color: '#94a3b8' };
 const labelStyle = { display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 };
-const inputStyle = { width: '100%', padding: '12px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: '15px', outline: 'none', boxSizing: 'border-box', transition: 'all 0.2s' };
-const btnStyle = { width: '100%', padding: '14px', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' };
+const inputStyle = { width: '100%', padding: '12px 14px', borderRadius: '8px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: '15px', outline: 'none', boxSizing: 'border-box' };
+const btnStyle = { width: '100%', padding: '14px', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 600, cursor: 'pointer' };
 const errorStyle = { backgroundColor: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#f43f5e', padding: '12px', borderRadius: '8px', fontSize: '14px', marginBottom: '20px', textAlign: 'left' };
 const infoBoxStyle = { backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px', textAlign: 'center' };
