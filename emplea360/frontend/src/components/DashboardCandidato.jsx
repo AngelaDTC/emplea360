@@ -4,22 +4,17 @@ import { useNavigate } from 'react-router-dom';
 export default function DashboardCandidato() {
     const navigate = useNavigate();
 
-    // URL base de tu backend en Railway (Fuera del JSX se comenta con //)
+    // URL base de tu backend en Railway
     const URL_BACKEND = 'https://emplea360-production.up.railway.app';
 
-    // 💾 1. DECLARACIÓN DE TODOS TUS ESTADOS
-    // Dejamos solo la variable de lectura, o comentamos la línea si no usás el estado todavía:
-const [cvFile] = useState(null); 
-const [previewFoto] = useState(null); 
-const [atsScore] = useState(null);
-    const [previewFoto, setPreviewFoto] = useState(null);
-    const [atsScore, setAtsScore] = useState(null);
-
-    // Estado para controlar visualmente si hay cambios sin guardar en la nube
+    // 💾 DECLARACIÓN DE ESTADOS LIMPIOS (Sin duplicados y sin romper Vercel)
+    const [cvFile] = useState(null); 
+    const [previewFoto] = useState(null); 
+    const [atsScore] = useState(null);
     const [tieneCambiosSinGuardar, setTieneCambiosSinGuardar] = useState(false);
     const [guardando, setGuardando] = useState(false);
 
-    // 🌟 Nombre con respaldo inmediato
+    // 🌟 Nombre con respaldo inmediato en localStorage
     const [nombreUsuario, setNombreUsuario] = useState(() => {
         return localStorage.getItem('usuario_nombre') || 'Candidato';
     });
@@ -49,6 +44,10 @@ const [atsScore] = useState(null);
                         setNombreUsuario(nombreReal);
                         localStorage.setItem('usuario_nombre', nombreReal);
                     }
+                } else if (respuesta.status === 403) {
+                    console.error("Token inválido o vencido (403). Redirigiendo a Login...");
+                    localStorage.removeItem('token');
+                    navigate('/login');
                 }
             } catch (error) {
                 console.error("Error al sincronizar con Railway:", error);
@@ -58,14 +57,5 @@ const [atsScore] = useState(null);
         cargarNombreDesdeBD();
     }, [navigate, URL_BACKEND]);
 
-    // ... El resto de tu código del return para abajo queda exactamente igual ...
-                }
-            } catch (error) {
-                console.error("Error al sincronizar con Railway:", error);
-            }
-        };
-
-        cargarNombreDesdeBD();
-    }, [navigate, URL_BACKEND]);
-
-    // --- Si usás los otros estados (cvFile, previewFoto, etc.), aseguralos abajo o eliminalos si no se usan todavía ---
+    // De acá para abajo pegás tu 'return (' normal del diseño del componente...
+    
