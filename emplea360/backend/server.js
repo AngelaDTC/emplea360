@@ -18,10 +18,10 @@ const pool = new Pool({
 
 const codigosVerificacion = new Map();
 
-// Simulación de WhatsApp limpia sin requerir librerías externas
+// Simulación de WhatsApp limpia para evitar bloqueos del Linter
 async function enviarWhatsAppRealConDemora(telefono, nombre, codigo) {
-    console.log(`[Simulación WhatsApp] Mensaje enviado a ${telefono} (${nombre}): Código ${codigo}`);
-    return new Promise(resolve => setTimeout(resolve, 1000));
+    console.log(`[Simulación WhatsApp] Mensaje para ${telefono} (${nombre}): Código ${codigo}`);
+    return new Promise(resolve => setTimeout(resolve, 500));
 }
 
 const verificarToken = (req, res, next) => {
@@ -35,6 +35,7 @@ const verificarToken = (req, res, next) => {
     });
 };
 
+// 🔐 REGISTRO DE USUARIOS
 app.post('/api/auth/register', async (req, res) => {
     const { email, password, telefono, rol, nombre } = req.body;
     try {
@@ -62,6 +63,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
+// 🔑 VERIFICACIÓN DE REGISTRO
 app.post('/api/auth/verify-register', async (req, res) => {
     const { email, code } = req.body;
     try {
@@ -88,6 +90,7 @@ app.post('/api/auth/verify-register', async (req, res) => {
     }
 });
 
+// 🚪 INICIO DE SESIÓN (LOGIN)
 app.post('/api/auth/login', async (req, res) => {
     const { identifier, password } = req.body;
     try {
@@ -115,6 +118,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// 🩹 RECUPERAR CONTRASEÑA
 app.post('/api/auth/forgot-password', async (req, res) => {
     const { email, telefono } = req.body;
     try {
@@ -130,6 +134,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 });
 
+// 📝 GUARDAR Y ACTUALIZAR PERFIL (Sintaxis reparada y blindada)
 app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
     const { perfil_candidato, carta_presentacion } = req.body;
     try {
@@ -142,16 +147,13 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
         );
 
         if (resultado.rows.length === 0) return res.status(404).json({ error: "No encontrado." });
-        res.status(200).json({ mensaje: "Perfil guardado.", candidato: resultado.rows[0] });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+        res.status(200).json({ mensaje: "Perfil guardado con éxito.", candidato: resultado.rows[0] });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
+// 👤 LEER PERFIL COMPLETO (Sincronizado con el Front para traer el nombre)
 app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
     try {
         const resultado = await pool.query(
@@ -174,6 +176,3 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
-
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor estable corriendo en puerto ${PORT}`));
