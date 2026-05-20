@@ -19,8 +19,8 @@ const pool = new Pool({
 const codigosVerificacion = new Map();
 
 // Simulación de WhatsApp limpia sin requerir librerías externas
-async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
-    console.log(`[Simulación WhatsApp] Mensaje enviado a ${telefonoUsuario} (${nombreUsuario}): Código ${codigo}`);
+async function enviarWhatsAppRealConDemora(telefono, nombre, codigo) {
+    console.log(`[Simulación WhatsApp] Mensaje enviado a ${telefono} (${nombre}): Código ${codigo}`);
     return new Promise(resolve => setTimeout(resolve, 1000));
 }
 
@@ -143,6 +143,10 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
 
         if (resultado.rows.length === 0) return res.status(404).json({ error: "No encontrado." });
         res.status(200).json({ mensaje: "Perfil guardado.", candidato: resultado.rows[0] });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
