@@ -25,10 +25,11 @@ const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN || '';
 const esperarSegundos = (segundos) => new Promise(resolve => setTimeout(resolve, segundos * 1000));
 
 async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codigo) {
+    // 🛡️ Si los parámetros no son válidos, simulamos pacíficamente sin romper el backend
     if (!WHATSAPP_API_URL || WHATSAPP_API_URL.trim() === '' || !WHATSAPP_API_TOKEN) {
         console.log(`[Simulación] Esperando 30 segundos para el número ${telefonoUsuario}...`);
         await esperarSegundos(30);
-        console.log(`[Simulación] Pasaron los 30s. Mensaje listo: Código ${codigo}`);
+        console.log(`[Simulación] Mensaje procesado para: Código ${codigo}`);
         return;
     }
 
@@ -52,15 +53,20 @@ async function enviarWhatsAppRealConDemora(telefonoUsuario, nombreUsuario, codig
             }
         };
 
-        // 🌟 CORRECCIÓN CRÍTICA: Se ejecuta directamente sin asignar variables que enojen al Linter
-        https.request(WHATSAPP_API_URL, opciones, (resHttp) => {
-            console.log(`🚀 [WhatsApp Real] Código de respuesta: ${resHttp.statusCode}`);
-        }).on('error', (error) => {
-            console.error("Error en envío externo de WhatsApp:", error.message);
-        }).write(cuerpoDatos);
+        // Instanciamos el flujo de forma clásica pero aislando los errores
+        const solicitud = https.request(WHATSAPP_API_URL, opciones, (respuestaHttp) => {
+            console.log(`🚀 [WhatsApp Real] Código de respuesta: ${respuestaHttp.statusCode}`);
+        });
+
+        solicitud.on('error', (error) => {
+            console.error("Error controlado en envío de WhatsApp:", error.message);
+        });
+
+        solicitud.write(cuerpoDatos);
+        solicitud.end(); // Cerramos correctamente la transmisión
 
     } catch (error) {
-        console.error("Error en bloque de envío externo:", error.message);
+        console.error("Error atrapado en bloque externo de WhatsApp:", error.message);
     }
 }
 
@@ -228,13 +234,13 @@ app.put('/api/candidato/perfil', verificarToken, async (req, res) => {
         }
 
         res.status(200).json({ 
-            mensaje: "🔒 Perfil completo respaldado permanentemente en PostgreSQL.",
+            mensaje: "🔒 Perfil completo respaldado permanentemente.",
             candidato: resultado.rows[0] 
         });
 
     } catch (error) {
-        console.error("Error crítico al guardar el perfil en la base de datos:", error);
-        res.status(500).json({ error: "Error interno del servidor al procesar la persistencia." });
+        console.error("Error al guardar el perfil:", error);
+        res.status(500).json({ error: "Error interno del servidor." });
     }
 });
 
@@ -266,4 +272,4 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor estable corriendo en puerto ${PORT}`));
