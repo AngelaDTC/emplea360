@@ -8,9 +8,10 @@ export default function DashboardCandidato() {
     const URL_BACKEND = 'https://emplea360-production.up.railway.app';
 
     // 💾 1. DECLARACIÓN DE TODOS TUS ESTADOS
-    // ⚡ OPTIMIZACIÓN: Carga inmediata usando localStorage como Caché
-    const [activeTab, setActiveTab] = useState('perfil');
-    const [cvFile, setCvFile] = useState(null);
+    // Dejamos solo la variable de lectura, o comentamos la línea si no usás el estado todavía:
+const [cvFile] = useState(null); 
+const [previewFoto] = useState(null); 
+const [atsScore] = useState(null);
     const [previewFoto, setPreviewFoto] = useState(null);
     const [atsScore, setAtsScore] = useState(null);
 
