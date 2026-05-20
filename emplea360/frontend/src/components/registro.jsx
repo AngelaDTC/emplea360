@@ -5,21 +5,21 @@ export default function RegisterPage() {
     const navigate = useNavigate();
     const URL_BACKEND = 'https://emplea360-production.up.railway.app';
 
-    // Estados del formulario de registro
+    // 💾 Estados del Formulario de Registro
+    const [nombre, setNombre] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [telefono, setTelefono] = useState('+54');
-    const [nombre, setNombre] = useState('');
-    
-    // Estados del flujo de verificación
+    const [telefono, setTelefono] = useState('+54'); // 🇦🇷 Prefijo de Argentina inicial obligatorio
+
+    // 🔄 Estados del Proceso de Verificación OTP
     const [pasoVerificacion, setPasoVerificacion] = useState(false);
     const [codigoIngresado, setCodigoIngresado] = useState('');
-    const [bypassCode, setBypassCode] = useState(''); // Muestra el código en pantalla para desarrollo rápido
+    const [bypassCode, setBypassCode] = useState(''); 
     
     const [cargando, setCargando] = useState(false);
     const [error, setError] = useState('');
 
-    // PASO 1: Enviar datos y despachar código
+    // 🚀 PASO 1: Enviar datos iniciales al Servidor
     const handleSolicitarRegistro = async (e) => {
         e.preventDefault();
         setCargando(true);
@@ -30,11 +30,11 @@ export default function RegisterPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
+                    nombre, // Guardamos el nombre en el backend
                     email, 
                     password, 
                     telefono, 
-                    rol: 'candidato', 
-                    nombre 
+                    rol: 'candidato' 
                 })
             });
 
@@ -42,21 +42,19 @@ export default function RegisterPage() {
 
             if (res.ok) {
                 setPasoVerificacion(true);
-                if (data.bypassCode) {
-                    setBypassCode(data.bypassCode);
-                }
+                if (data.bypassCode) setBypassCode(data.bypassCode);
             } else {
                 setError(data.error || 'Ocurrió un error al procesar el registro.');
             }
         } catch (err) {
             console.error(err);
-            setError('Error de conexión con el servidor.');
+            setError('Error de conexión con Railway.');
         } finally {
             setCargando(false);
         }
     };
 
-    // PASO 2: Confirmar código y activar cuenta en PostgreSQL
+    // 🔐 PASO 2: Confirmar Código OTP y activar en la Base de Datos
     const handleConfirmarVerificacion = async (e) => {
         e.preventDefault();
         setCargando(true);
@@ -66,19 +64,15 @@ export default function RegisterPage() {
             const res = await fetch(`${URL_BACKEND}/api/auth/verify-register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    email, 
-                    code: codigoIngresado 
-                })
+                body: JSON.stringify({ email, code: codigoIngresado })
             });
 
-            const data = await res.json();
-
             if (res.ok) {
-                alert('¡Cuenta activada con éxito!');
+                alert('¡Cuenta creada y activada con éxito!');
                 navigate('/login');
             } else {
-                setError(data.error || 'Código incorrecto o expirado.');
+                const data = await res.json().catch(() => ({}));
+                setError(data.error || 'Código incorrecto.');
             }
         } catch (err) {
             console.error(err);
@@ -89,104 +83,70 @@ export default function RegisterPage() {
     };
 
     return (
-        <div style={{
-            display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-            fontFamily: '"Segoe UI", Roboto, sans-serif', padding: '20px', boxSizing: 'border-box'
-        }}>
-            <div style={{
-                width: '100%', maxWidth: '420px', backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '40px',
-                borderRadius: '20px', border: '1px solid rgba(255, 255, 255, 0.08)',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', textAlign: 'center'
-            }}>
+        <div style={containerStyle}>
+            <div style={cardStyle}>
                 
-                {/* BRANDING */}
+                {/* LOGO */}
                 <div style={{ marginBottom: '28px' }}>
-                    <div style={{
-                        width: '50px', height: '50px', borderRadius: '12px', backgroundColor: '#10b981',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px',
-                        fontWeight: 'bold', color: '#fff', margin: '0 auto 12px auto', boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)'
-                    }}>+</div>
-                    <h1 style={{ color: '#f8fafc', margin: '0 0 6px 0', fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px' }}>
-                        {pasoVerificacion ? 'Verificación' : 'Crear Cuenta'}
-                    </h1>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8' }}>
-                        {pasoVerificacion ? 'Ingresá el código enviado por WhatsApp' : 'Completá tus datos para el Portal de Talento'}
+                    <div style={{ ...logoStyle, backgroundColor: '#10b981', boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}>+</div>
+                    <h1 style={titleStyle}>{pasoVerificacion ? 'Verificá tu Cuenta' : 'Registrarse'}</h1>
+                    <p style={subtitleStyle}>
+                        {pasoVerificacion ? 'Ingresá el código enviado por WhatsApp' : 'Portal de Talento Emplea360'}
                     </p>
                 </div>
 
-                {error && (
-                    <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', color: '#f43f5e', padding: '12px', borderRadius: '8px', fontSize: '14px', marginBottom: '20px', textAlign: 'left' }}>
-                        ⚠️ {error}
-                    </div>
-                )}
+                {error && <div style={errorStyle}>⚠️ {error}</div>}
 
-                {/* FORMULARIO PASO 1: REGISTRO INICIAL */}
+                {/* FORMULARIO PASO 1 */}
                 {!pasoVerificacion ? (
                     <form onSubmit={handleSolicitarRegistro} style={{ textAlign: 'left' }}>
                         <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>Nombre Completo</label>
+                            <label style={labelStyle}>Nombre Completo</label>
                             <input type="text" required value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Angela Gómez" style={inputStyle} />
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>Email corporativo o personal</label>
+                            <label style={labelStyle}>Email</label>
                             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="angela@correo.com" style={inputStyle} />
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
-    <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>
-        Número de Celular
-    </label>
-    <input 
-        type="tel" 
-        required 
-        value={telefono} 
-        onChange={(e) => {
-            const valor = e.target.value;
-            // Evita que el usuario borre el prefijo +54
-            if (valor.startsWith('+54')) {
-                setTelefono(valor);
-            } else if (valor.length < 3) {
-                setTelefono('+54');
-            }
-        }} 
-        placeholder="+54 9 11 ..." 
-        style={{
-            width: '100%', 
-            padding: '12px 14px', 
-            borderRadius: '8px', 
-            border: '1px solid #334155',
-            backgroundColor: '#0f172a', 
-            color: '#f8fafc', 
-            fontSize: '15px', 
-            outline: 'none', 
-            boxSizing: 'border-box'
-        }} 
-    />
-</div>
+                            <label style={labelStyle}>Número de Celular</label>
+                            <input 
+                                type="tel" 
+                                required 
+                                value={telefono} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    // Bloqueo estricto para que no borren el +54
+                                    if (val.startsWith('+54')) setTelefono(val);
+                                    else if (val.length < 3) setTelefono('+54');
+                                }} 
+                                placeholder="+54 9 11 ..." 
+                                style={inputStyle} 
+                            />
+                        </div>
 
                         <div style={{ marginBottom: '24px' }}>
-                            <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>Contraseña</label>
+                            <label style={labelStyle}>Contraseña</label>
                             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
                         </div>
 
                         <button type="submit" disabled={cargando} style={{ ...btnStyle, backgroundColor: '#10b981' }}>
-                            {cargando ? 'Despachando código...' : 'Registrarme'}
+                            {cargando ? 'Enviando código...' : 'Registrarme'}
                         </button>
                     </form>
                 ) : (
-                    /* FORMULARIO PASO 2: VERIFICACIÓN OTP */
+                    /* FORMULARIO PASO 2 */
                     <form onSubmit={handleConfirmarVerificacion} style={{ textAlign: 'left' }}>
                         {bypassCode && (
-                            <div style={{ backgroundColor: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '12px', borderRadius: '8px', fontSize: '13px', marginBottom: '16px', textAlign: 'center' }}>
-                                💡 Código recibido en simulación: <strong>{bypassCode}</strong>
+                            <div style={infoBoxStyle}>
+                                💡 Código de simulación: <strong>{bypassCode}</strong>
                             </div>
                         )}
 
                         <div style={{ marginBottom: '24px' }}>
-                            <label style={{ display: 'block', marginBottom: '6px', color: '#cbd5e1', fontSize: '13px', fontWeight: 600 }}>Código de Verificación (6 dígitos)</label>
+                            <label style={labelStyle}>Código de Verificación (6 dígitos)</label>
                             <input type="text" maxLength="6" required value={codigoIngresado} onChange={(e) => setCodigoIngresado(e.target.value)} placeholder="123456" style={{ ...inputStyle, letterSpacing: '4px', textAlign: 'center', fontSize: '20px' }} />
                         </div>
 
@@ -198,7 +158,7 @@ export default function RegisterPage() {
 
                 <div style={{ marginTop: '24px', borderTop: '1px solid #334155', paddingTop: '16px' }}>
                     <p style={{ margin: 0, fontSize: '14px', color: '#94a3b8' }}>
-                        ¿Ya tenés una cuenta?{' '}
+                        ¿Ya tenés cuenta?{' '}
                         <span onClick={() => navigate('/login')} style={{ color: '#38bdf8', cursor: 'pointer', fontWeight: 500 }}>Iniciá Sesión</span>
                     </p>
                 </div>
@@ -207,12 +167,4 @@ export default function RegisterPage() {
     );
 }
 
-const inputStyle = {
-    width: '100%', padding: '12px 14px', borderRadius: '8px', border: '1px solid #334155',
-    backgroundColor: '#0f172a', color: '#f8fafc', fontSize: '15px', outline: 'none', boxSizing: 'border-box'
-};
-
-const btnStyle = {
-    width: '100%', padding: '14px', color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s ease'
-};
+// Estilos Reutilizables (adjuntos abajo en cascada)
