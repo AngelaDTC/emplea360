@@ -162,13 +162,10 @@ app.get('/api/candidato/perfil', verificarToken, async (req, res) => {
             [req.usuarioId]
         );
         if (resultado.rows.length === 0) return res.status(404).json({ error: 'No encontrado.' });
-        // ... Todo el resto de tu código igual arriba ...
-
-// Modificación de cierre para compatibilidad absoluta de red con Railway
-const PORT = process.env.PORT || 3000; 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor mapeado exitosamente en el puerto ${PORT}`);
-});
+        
+        const perfilData = resultado.rows[0];
+        
+        res.json({
             ...perfilData,
             nombre: perfilData.nombre_completo, 
             nombre_completo: perfilData.nombre_completo
@@ -178,5 +175,8 @@ app.listen(PORT, '0.0.0.0', () => {
     }
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
+// Configuración de cierre para compatibilidad absoluta de red con Railway
+const PORT = process.env.PORT || 3000; 
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor mapeado exitosamente en el puerto ${PORT}`);
+});
