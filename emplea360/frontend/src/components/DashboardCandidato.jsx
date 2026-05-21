@@ -126,13 +126,13 @@ export default function DashboardCandidato() {
       setEstudios([...estudios, nuevoEstudio.trim()]);
       setNuevoEstudio('');
     }
-    if (tipo === 'experiencia' && nuevoExperiencia.trim() !== '') {
-      setExperiencias([...experiencias, nuevoExperiencia.trim()]);
-      setNuevoExperiencia('');
+    if (tipo === 'experiencia' && nuevaExperiencia.trim() !== '') { // 👈 Corregido el nombre de la variable
+      setExperiencias([...experiencias, nuevaExperiencia.trim()]);
+      setNuevaExperiencia('');
     }
-    if (tipo === 'capacitacion' && nuevoCapacitacion.trim() !== '') {
-      setCapacitaciones([...capacitaciones, nuevoCapacitacion.trim()]);
-      setNuevoCapacitacion('');
+    if (tipo === 'capacitacion' && nuevaCapacitacion.trim() !== '') {
+      setCapacitaciones([...capacitaciones, nuevaCapacitacion.trim()]);
+      setNuevaCapacitacion('');
     }
     if (tipo === 'conocimiento' && nuevoConocimiento.trim() !== '') {
       if (!conocimientos.includes(nuevoConocimiento.trim())) setConocimientos([...conocimientos, nuevoConocimiento.trim()]);
@@ -278,7 +278,7 @@ export default function DashboardCandidato() {
                       {sugerenciasHabilidades.map((s, idx) => <option key={idx} value={s}>{s}</option>)}
                     </select>
                     <input type="text" value={nuevaHabilidad} onChange={(e) => setNuevaHabilidad(e.target.value)} placeholder="Otra..." style={inlineInput} />
-                    <button onClick={() => agregarItem('hability')} style={btnAddInline}><Plus size={14} /></button>
+                    <button onClick={() => agregarItem('habilidad')} style={btnAddInline}><Plus size={14} /></button> {/* 👈 Corregido a 'habilidad' */}
                   </div>
                   <div style={tagCloud}>
                     {habilidades.map((h, i) => <span key={i} style={tagChip}>{h}</span>)}
@@ -288,8 +288,8 @@ export default function DashboardCandidato() {
                 <div style={listWidgetBox}>
                   <h4 style={listWidgetTitle}>Experiencias</h4>
                   <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
-                    <input type="text" value={nuevoExperiencia} onChange={(e) => setNuevoExperiencia(e.target.value)} placeholder="Puesto..." style={inlineInput} />
-                    <button onClick={() => agregarItem('experience')} style={btnAddInline}><Plus size={14} /></button>
+                    <input type="text" value={nuevaExperiencia} onChange={(e) => setNuevoExperiencia(e.target.value)} placeholder="Puesto..." style={inlineInput} />
+                    <button onClick={() => agregarItem('experiencia')} style={btnAddInline}><Plus size={14} /></button> {/* 👈 Corregido a 'experiencia' */}
                   </div>
                   <ul style={widgetUl}>
                     {experiencias.map((exp, i) => <li key={i} style={widgetLi}>{exp}</li>)}
