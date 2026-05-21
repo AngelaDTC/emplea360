@@ -1,354 +1,509 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  User, FileText, Calendar, MessageSquare, Briefcase, Users, 
-  LogOut, MapPin, Clock, CalendarDays, Search, Building2, Eye, CheckCircle
-} from 'lucide-react';
 
-export default function Dashboard() {
+export default function DashboardCandidato() {
   const navigate = useNavigate();
 
-  // 🔑 Detectar el Rol del usuario (Forzado en 'candidato' para desarrollo de esta sección)
-  const [userRol, setUserRol] = useState(
-    () => localStorage.getItem('usuario_rol') || 'candidato' 
-  );
+  // URL base de tu backend en Railway
+  const URL_BACKEND = 'https://emplea360-production-517a.up.railway.app'; 
 
-  // Menú de navegación adaptado con las secciones exclusivas del candidato
-  const [seccionActiva, setSeccionActiva] = useState('buscar-vacantes'); 
-  const [nombreUsuario, setNombreUsuario] = useState('Angela Tapias');
+  // ==========================================
+  // 💾 1. DECLARACIÓN DE TODOS TUS ESTADOS
+  // ==========================================
+  const [activeTab, setActiveTab] = useState('perfil'); 
+  const [cvFile, setCvFile] = useState(null);
+  const [previewFoto, setPreviewFoto] = useState(null);
+  const [atsScore, setAtsScore] = useState(null);
+  
+  // 🌟 Estado para el nombre del usuario (Con respaldo de localStorage)
+  const [nombreUsuario, setNombreUsuario] = useState(() => {
+    return localStorage.getItem('usuario_nombre') || 'Candidato';
+  });
 
-  // --- [ESTADO: FILTROS DE BÚSQUEDA] ---
-  const [busquedaTexto, setBusquedaTexto] = useState('');
-  const [filtroModalidad, setFiltroModalidad] = useState('Todos');
-  const [filtroJornada, setFiltroJornada] = useState('Todos');
+  const [perfilCandidato, setPerfilCandidato] = useState('');
+  const [cartaPresentacion, setCartaPresentacion] = useState('');
+  const [habilidades, setHabilidades] = useState([]);
+  const [estudios, setEstudios] = useState([]);
+  const [experiencias, setExperiencias] = useState([]);
+  const [capacitaciones, setCapacitaciones] = useState([]);
+  const [conocimientos, setConocimientos] = useState([]);
 
-  // --- [BASE DE DATOS SIMULADA: VACANTES DISPONIBLES EN LA PLATAFORMA] ---
-  const [vacantesGlobales, setVacantesGlobales] = useState([
-    { 
-      id: 1, 
-      empresa: 'Tech Solutions S.A.', 
-      puesto: 'Desarrollador React Junior', 
-      descripcion: 'Buscamos un perfil proactivo para sumarse al equipo de Frontend.', 
-      competencias: 'React, JavaScript, Git', 
-      salario: '450000',
-      modalidad: 'Remoto',
-      jornada: 'Full-time',
-      vencimiento: '2026-07-30'
-    },
-    { 
-      id: 2, 
-      empresa: 'Global Corp', 
-      puesto: 'Diseñador UI/UX Senior', 
-      descripcion: 'Responsable de iterar la arquitectura de información y flujos visuales de nuestra Fintech.', 
-      competencias: 'Figma, Design Systems, Testing con Usuarios', 
-      salario: '850000',
-      modalidad: 'Híbrido',
-      jornada: 'Full-time',
-      vencimiento: '2026-06-15'
-    },
-    { 
-      id: 3, 
-      empresa: 'Innovar Digital', 
-      puesto: 'Data Analyst Part-time', 
-      descripcion: 'Armado de dashboards y cruce de datos comerciales en SQL y PowerBI.', 
-      competencias: 'SQL, Python, PowerBI', 
-      salario: '320000',
-      modalidad: 'Presencial',
-      jornada: 'Part-time',
-      vencimiento: '2026-08-05'
-    }
+  const [nuevaHabilidad, setNuevaHabilidad] = useState('');
+  const [nuevoEstudio, setNuevoEstudio] = useState({ titulo: '', institucion: '', año: '' });
+  const [nuevaExperiencia, setNuevaExperiencia] = useState({ puesto: '', empresa: '', periodo: '' });
+  const [nuevaCapacitacion, setNuevaCapacitacion] = useState({ nombre: '', entidad: '' });
+  const [nuevoConocimiento, setNuevoConocimiento] = useState('');
+
+  const listaHabilidadesSugeridas = ["React.js", "Node.js", "PostgreSQL", "JavaScript", "Metodologías Ágiles", "UI/UX", "Python", "Liderazgo de Equipos", "Gestión Comercial", "Atención al Cliente"];
+  const listaConocimientosSugeridas = ["Inglés Técnico", "Excel Avanzado", "Git & GitHub", "Docker", "Bases de Datos Relacionales", "Contabilidad General", "Marketing Digital"];
+
+  const [entrevistas, setEntrevistas] = useState([
+    { id: 1, empresa: 'Tech San Juan S.A.', fecha: '2026-05-22', hora: '15:30', estado: 'Pendiente' }
   ]);
+  const [showModal, setShowModal] = useState(false);
+  const [nuevaEntrevista, setNuevaEntrevista] = useState({ empresa: '', fecha: '', hora: '' });
+  const diasMes = Array.from({ length: 31 }, (_, i) => i + 1);
 
-  // --- [ESTADO: POSTULACIONES EFECTUADAS POR EL CANDIDATO] ---
-  const [misPostulaciones, setMisPostulaciones] = useState([
-    { id: 1, puesto: 'Desarrollador React Junior', empresa: 'Tech Solutions S.A.', fechaAplicacion: '2026-05-18', estado: 'En Revisión' }
-  ]);
+  // ==========================================
+  // 🔑 2. CARGAR PERFIL DE LA BASE DE DATOS Y LOCALSTORAGE
+  // ==========================================
+  useEffect(() => {
+    const cargarPerfilDesdeBD = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        // Respaldo inmediato por si la BD tarda: leemos lo que guardó el login
+        const nombreLocal = localStorage.getItem('usuario_nombre');
+        if (nombreLocal) {
+          setNombreUsuario(nombreLocal);
+        }
 
-  // --- [ESTADO: PERFILES DE EMPRESAS DISPONIBLES] ---
-  const [perfilesEmpresas, setPerfilesEmpresas] = useState([
-    { id: 501, nombre: 'Tech Solutions S.A.', rubro: 'Software & Cloud', ubicacion: 'Buenos Aires, Argentina', descripcion: 'Líderes en transformación digital y outsourcing de talento IT para LATAM.', empleados: '150-500' },
-    { id: 502, nombre: 'Global Corp', rubro: 'Fintech & Banca', ubicacion: 'Córdoba, Argentina', descripcion: 'Ecosistema financiero abierto enfocado en microcréditos y accesibilidad digital.', empleados: '500+' },
-    { id: 503, nombre: 'Innovar Digital', rubro: 'Marketing & Data', ubicacion: 'Mendoza, Argentina', descripcion: 'Agencia boutique enfocada en analítica avanzada y Growth Hack corporativo.', empleados: '10-50' }
-  ]);
+        if (!token) return;
 
-  // --- [FUNCIONES DE ACCIÓN] ---
-  const handlePostularse = (vacante) => {
-    // Evitar duplicados
-    if (misPostulaciones.some(p => p.puesto === vacante.puesto && p.empresa === vacante.empresa)) {
-      alert('Ya te has postulado a esta vacante anteriormente.');
-      return;
-    }
-    
-    const nuevaPostulacion = {
-      id: Date.now(),
-      puesto: vacante.puesto,
-      empresa: vacante.empresa,
-      fechaAplicacion: new Date().toISOString().split('T')[0],
-      estado: 'CV Recibido'
+        const respuesta = await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (respuesta.ok) {
+          const datos = await respuesta.json();
+          console.log("🔒 Perfil recuperado de PostgreSQL:", datos);
+          
+          // Si la base de datos trae el nombre, lo actualizamos. 
+          // Si viene vacío, dejamos el del localStorage.
+          if (datos.nombre_completo && datos.nombre_completo.trim() !== "") {
+            setNombreUsuario(datos.nombre_completo);
+            localStorage.setItem('usuario_nombre', datos.nombre_completo);
+          } else if (datos.nombre && datos.nombre.trim() !== "") {
+            setNombreUsuario(datos.nombre);
+            localStorage.setItem('usuario_nombre', datos.nombre);
+          }
+          
+          // Cargamos el resto de los campos si existen en la BD
+          if (datos.perfil_candidato) setPerfilCandidato(datos.perfil_candidato);
+          if (datos.carta_presentacion) setCartaPresentacion(datos.carta_presentacion);
+          if (datos.habilidades) setHabilidades(typeof datos.habilidades === 'string' ? JSON.parse(datos.habilidades) : datos.habilidades);
+          if (datos.estudios) setEstudios(typeof datos.estudios === 'string' ? JSON.parse(datos.estudios) : datos.estudios);
+          if (datos.experiencias) setExperiencias(typeof datos.experiencias === 'string' ? JSON.parse(datos.experiencias) : datos.experiencias);
+          if (datos.capacitaciones) setCapacitaciones(typeof datos.capacitaciones === 'string' ? JSON.parse(datos.capacitaciones) : datos.capacitaciones);
+          if (datos.conocimientos) setConocimientos(typeof datos.conocimientos === 'string' ? JSON.parse(datos.conocimientos) : datos.conocimientos);
+        }
+      } catch (error) {
+        console.error("Error al cargar los datos iniciales desde la BD:", error);
+      }
     };
-    
-    setMisPostulaciones([nuevaPostulacion, ...misPostulaciones]);
-    alert(`¡Postulación enviada con éxito a ${vacante.empresa}! Tu CV fue cargado automáticamente.`);
+
+    cargarPerfilDesdeBD();
+  }, [URL_BACKEND]);
+
+  // ==========================================
+  // 🔥 3. FUNCIÓN DE PERSISTENCIA AUTOMÁTICA EN LA NUBE
+  // ==========================================
+  const guardarDatosEnBaseDeDatos = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          perfil_candidato: perfilCandidato,
+          carta_presentacion: cartaPresentacion,
+          habilidades: JSON.stringify(habilidades), 
+          estudios: JSON.stringify(estudios),
+          experiences: JSON.stringify(experiencias),
+          capacitaciones: JSON.stringify(capacitaciones),
+          conocimientos: JSON.stringify(conocimientos)
+        })
+      });
+    } catch (error) {
+      console.error("Error al persistir los datos automáticamente:", error);
+    }
   };
 
-  const handleCerrarSesion = () => {
-    localStorage.clear();
-    navigate('/auth');
+  useEffect(() => {
+    if (habilidades.length > 0 || perfilCandidato !== '') {
+      guardarDatosEnBaseDeDatos();
+    }
+  }, [perfilCandidato, cartaPresentacion, habilidades, estudios, experiencias, capacitaciones, conocimientos]);
+
+  // ==========================================
+  // ⚙️ FUNCIONES DE LÓGICA E INTERACCIÓN
+  // ==========================================
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('rol');
+    localStorage.removeItem('usuario_nombre');
+    navigate('/');
   };
 
-  // --- [LÓGICA DE FILTRADO DINÁMICO DE VACANTES] ---
-  const vacantesFiltradas = vacantesGlobales.filter(v => {
-    const cumpleTexto = v.puesto.toLowerCase().includes(busquedaTexto.toLowerCase()) || 
-                        v.empresa.toLowerCase().includes(busquedaTexto.toLowerCase()) ||
-                        v.competencias.toLowerCase().includes(busquedaTexto.toLowerCase());
-    const cumpleModalidad = filtroModalidad === 'Todos' || v.modalidad === filtroModalidad;
-    const cumpleJornada = filtroJornada === 'Todos' || v.jornada === filtroJornada;
-    return cumpleTexto && cumpleModalidad && cumpleJornada;
+  const handleCvChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCvFile(file);
+      setTimeout(() => {
+        setAtsScore({
+          score: 92,
+          consejos: [
+            "Excelente estructura lineal. Formato de columna única detectado.",
+            "Palabras clave óptimas para el sector tecnológico / gestión.",
+            "Sugerencia: Detallá un poco más tus funciones en el último empleo."
+          ]
+        });
+
+        setPerfilCandidato(`Profesional proactivo orientado al desarrollo de soluciones eficientes. Mi enfoque principal está en el trabajo en equipo, la adopción de metodologías ágiles y el aporte de valor técnico al crecimiento regional desde mi rol como candidato.`);
+        setCartaPresentacion(`Estimado responsable de selección,\n\nMe dirijo a usted con gran entusiasmo para presentar mi postulación a los perfiles activos de su prestigiosa organización. Tras analizar las demandas actuales del sector, considero que mis competencias técnicas y habilidades interpersonales se alinean con sus objetivos comerciales.\n\nAgradezco de antemano su consideración.\n\nAtentamente,\n${nombreUsuario}`);
+        setHabilidades(["React.js", "JavaScript", "Node.js", "PostgreSQL"]);
+        setEstudios([{ titulo: "Tecnicatura en Desarrollo de Software", institucion: "Universidad Nacional", año: "2025" }]);
+        setExperiencias([{ puesto: "Desarrollador Full Stack Trainee", empresa: "Innovación Local S.A.", periodo: "2024 - Presente" }]);
+        setCapacitaciones([{ nombre: "Especialización en Arquitecturas Web", entidad: "Academia Emplea 360" }]);
+        setConocimientos(["Git & GitHub", "Bases de Datos Relacionales", "Excel Avanzado"]);
+
+        alert("✨ ¡CV procesado con éxito! Se cargaron tus datos y la documentación automática.");
+      }, 1200);
+    }
+  };
+
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) setPreviewFoto(URL.createObjectURL(file));
+  };
+
+  const addHabilidadManual = () => {
+    if (nuevaHabilidad && !habilidades.includes(nuevaHabilidad)) {
+      setHabilidades([...habilidades, nuevaHabilidad]);
+      setNuevaHabilidad('');
+    }
+  };
+
+  const addConocimientoManual = () => {
+    if (nuevoConocimiento && !conocimientos.includes(nuevoConocimiento)) {
+      setConocimientos([...conocimientos, nuevoConocimiento]);
+      setNuevoConocimiento('');
+    }
+  };
+
+  const addEstudioManual = (e) => {
+    e.preventDefault();
+    if (nuevoEstudio.titulo && nuevoEstudio.institucion) {
+      setEstudios([...estudios, nuevoEstudio]);
+      setNuevoEstudio({ titulo: '', institucion: '', año: '' });
+    }
+  };
+
+  const addExperienciaManual = (e) => {
+    e.preventDefault();
+    if (nuevaExperiencia.puesto && nuevaExperiencia.empresa) {
+      setExperiencias([...experiencias, nuevaExperiencia]);
+      setNuevaExperiencia({ puesto: '', empresa: '', periodo: '' });
+    }
+  };
+
+  const addCapacitacionManual = (e) => {
+    e.preventDefault();
+    if (nuevaCapacitacion.nombre && nuevaCapacitacion.entidad) {
+      setCapacitaciones([...capacitaciones, nuevaCapacitacion]);
+      setNuevaCapacitacion({ nombre: '', entidad: '' });
+    }
+  };
+
+  const descargarPdfAts = () => {
+    const ventanaImpresion = window.open('', '_blank');
+    ventanaImpresion.document.write(`
+      <html>
+        <head>
+          <title>CV Optimizado - ATS - ${nombreUsuario}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #111; line-height: 1.5; padding: 40px; max-width: 800px; margin: 0 auto; }
+            .encabezado-ats { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+            .encabezado-ats h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+            .encabezado-ats p { margin: 5px 0 0 0; font-size: 12px; color: #555; font-weight: bold; }
+            h2 { font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 25px; text-transform: uppercase; color: #222; }
+            p, li { font-size: 13px; }
+            .item { margin-bottom: 12px; }
+            .item-header { display: flex; justify-content: space-between; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="encabezado-ats">
+            <h1>CURRÍCULUM DE ${nombreUsuario.toUpperCase()}</h1>
+            <p>EMPLEA 360 - FORMATO ESTÁNDAR DE LECTURA DE SISTEMAS AUTOMATIZADOS (ATS)</p>
+          </div>
+          <h2>Perfil Profesional</h2>
+          <p>${perfilCandidato || 'No especificado.'}</p>
+          <h2>Experiencia Laboral</h2>
+          ${experiencias.length === 0 ? '<p>No especificada.</p>' : experiencias.map(exp => `<div class="item"><div class="item-header"><span>${exp.puesto} - ${exp.empresa}</span><span>${exp.periodo}</span></div></div>`).join('')}
+          <h2>Educación y Formación</h2>
+          ${estudios.length === 0 ? '<p>No especificada.</p>' : estudios.map(est => `<div class="item"><div class="item-header"><span>${est.titulo}</span><span>${est.año}</span></div><div>${est.institucion}</div></div>`).join('')}
+          <h2>Capacitaciones</h2>
+          ${capacitaciones.length === 0 ? '<p>No especificada.</p>' : capacitaciones.map(cap => `<div class="item"><strong>${cap.nombre}</strong> (${cap.entidad})</div>`).join('')}
+          <h2>Habilidades Técnicas</h2>
+          <p>${habilidades.join(', ') || 'No especificadas.'}</p>
+          <h2>Conocimientos Adicionales</h2>
+          <p>${conocimientos.join(', ') || 'No especificados.'}</p>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    ventanaImpresion.document.close();
+  };
+
+  const abrirModal = () => setShowModal(true);
+  const cerrarModal = () => { setShowModal(false); setNuevaEntrevista({ empresa: '', fecha: '', hora: '' }); };
+  const handleAddEntrevistaSubmit = (e) => {
+    e.preventDefault();
+    setEntrevistas([...entrevistas, { id: Date.now(), ...nuevaEntrevista, estado: 'Pendiente' }]);
+    cerrarModal();
+  };
+  const tieneEntrevistaElDia = (dia) => entrevistas.filter(ent => ent.fecha === `2026-05-${dia.toString().padStart(2, '0')}`);
+
+  // Estilo dinámico para los botones activos de la navegación lateral
+  const btnStyle = (isActive) => ({
+    width: '100%',
+    padding: '12px 15px',
+    background: isActive ? '#38bdf8' : 'transparent',
+    color: isActive ? '#0f172a' : '#cbd5e1',
+    border: 'none',
+    borderRadius: '6px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '14px',
+    transition: 'background 0.2s'
   });
 
   return (
-    <div style={dashboardLayout}>
+    <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: 'sans-serif', position: 'relative' }}>
       
-      {/* MENÚ LATERAL DEL CANDIDATO */}
-      <aside style={sidebarStyle}>
+      {/* 📊 MENÚ LATERAL (SIDEBAR) */}
+      <div style={{ width: '280px', background: '#0f172a', color: '#fff', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 10 }}>
         <div>
-          <div style={brandStyle}>
-            <div style={logoIcon}>360</div>
-            <div>
-              <h2 style={brandTitle}>Emplea360</h2>
-              <span style={brandSub}>Portal de Talento</span>
+          <h2 style={{ color: '#38bdf8', fontSize: '20px', textAlign: 'center', marginBottom: '30px' }}>Emplea 360</h2>
+          
+          <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#334155', margin: '0 auto 10px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {previewFoto ? <img src={previewFoto} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#94a3b8' }}>👤</span>}
             </div>
+            
+            {/* 🔥 EL NOMBRE DINÁMICO AQUÍ */}
+            <p style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#38bdf8' }}>
+              {nombreUsuario}
+            </p>
+            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>Panel Candidato</p>
           </div>
 
-          <div style={userCardNav}>
-            <div style={avatarPlaceholder}>{nombreUsuario[0]}</div>
-            <h4 style={userNameText}>{nombreUsuario}</h4>
-            <p style={{ ...userRoleText, color: '#10b981' }}>Candidato Activo</p>
-          </div>
-
-          <nav style={navGroup}>
-            <button onClick={() => setSeccionActiva('buscar-vacantes')} style={seccionActiva === 'buscar-vacantes' ? btnNavActive : btnNav}>
-              <Search size={18} /> <span>Explorar Vacantes</span>
-            </button>
-            <button onClick={() => setSeccionActiva('mis-postulaciones')} style={seccionActiva === 'mis-postulaciones' ? btnNavActive : btnNav}>
-              <Briefcase size={18} /> <span>Mis Postulaciones</span>
-            </button>
-            <button onClick={() => setSeccionActiva('empresas')} style={seccionActiva === 'empresas' ? btnNavActive : btnNav}>
-              <Building2 size={18} /> <span>Perfiles de Empresas</span>
-            </button>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button onClick={() => setActiveTab('perfil')} style={btnStyle(activeTab === 'perfil')}>📄 Carga y Optimización CV</button>
+            <button onClick={() => setActiveTab('formularios')} style={btnStyle(activeTab === 'formularios')}>✏️ Datos y Estructura CV</button>
+            <button onClick={() => setActiveTab('documentos')} style={btnStyle(activeTab === 'documentos')}>💼 Documentos Generados</button>
+            <button onClick={() => setActiveTab('calendario')} style={btnStyle(activeTab === 'calendario')}>📅 Entrevistas</button>
+            <button onClick={() => setActiveTab('academia')} style={btnStyle(activeTab === 'academia')}>🎓 Academia</button>
+            <button onClick={() => setActiveTab('analisis')} style={btnStyle(activeTab === 'analisis')}>📈 Postulaciones</button>
+            <button onClick={() => setActiveTab('chat')} style={btnStyle(activeTab === 'chat')}>💬 Sala de Chat</button>
           </nav>
         </div>
+        <div style={{ borderTop: '1px solid #334155', paddingTop: '15px' }}>
+          <button onClick={handleLogout} style={{ width: '100%', padding: '12px 15px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>🚪 Cerrar Sesión</button>
+        </div>
+      </div>
 
-        <button onClick={handleCerrarSesion} style={btnLogout}>
-          <LogOut size={16} /> Cerrar Sesión
-        </button>
-      </aside>
-
-      {/* ÁREA DE CONTENIDO PRINCIPAL */}
-      <main style={mainContentArea}>
+      {/* 🖥️ CONTENIDO PRINCIPAL DINÁMICO */}
+      <div style={{ flex: 1, padding: '40px', overflowY: 'auto', paddingBottom: '80px', position: 'relative' }}>
         
-        {/* ============================================== */}
-        {/* SECCIÓN 1: EXPLORAR VACANTES (BUSCAR Y FILTRAR) */}
-        {/* ============================================== */}
-        {seccionActiva === 'buscar-vacantes' && (
+        {activeTab === 'perfil' && (
           <div>
-            <div style={headerSection}>
-              <div>
-                <h1 style={titleMain}>Ofertas de Empleo Disponibles</h1>
-                <p style={subtitleMain}>Filtra por modalidad de trabajo, salario y encuentra tu próximo desafío laboral.</p>
-              </div>
+            <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Optimización Inteligente</h2>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Foto de Perfil</h3>
+              <input type="file" accept="image/*" onChange={handleFotoChange} style={{ marginTop: '10px' }} />
             </div>
-
-            {/* BARRA DE FILTROS AVANZADA */}
-            <div style={searchFilterBar}>
-              <div style={{ flex: 2, position: 'relative' }}>
-                <input 
-                  type="text" 
-                  value={busquedaTexto}
-                  onChange={(e) => setBusquedaTexto(e.target.value)}
-                  placeholder="Buscar por puesto, empresa o tecnología (Ej: React)..." 
-                  style={{ ...inlineInputFull, paddingLeft: '38px' }}
-                />
-                <Search size={16} style={searchIconInside} />
-              </div>
-              
-              <div style={{ flex: 1 }}>
-                <select value={filtroModalidad} onChange={(e) => setFiltroModalidad(e.target.value)} style={selectStyle}>
-                  <option value="Todos">🌍 Todas las Modalidades</option>
-                  <option value="Remoto">💻 Remoto</option>
-                  <option value="Presencial">🏢 Presencial</option>
-                  <option value="Híbrido">🌐 Híbrido</option>
-                </select>
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <select value={filtroJornada} onChange={(e) => setFiltroJornada(e.target.value)} style={selectStyle}>
-                  <option value="Todos">⏰ Todas las Jornadas</option>
-                  <option value="Full-time">⏱️ Full-time</option>
-                  <option value="Part-time">⏳ Part-time</option>
-                </select>
-              </div>
-            </div>
-
-            {/* FEED DE VACANTES FILTRADAS */}
-            <div style={vacanciesGrid}>
-              {vacanciesGrid.length === 0 || vacantesFiltradas.length === 0 ? (
-                <div style={noResultsBox}>No se encontraron vacantes coincidentes con los filtros aplicados.</div>
-              ) : (
-                vacantesFiltradas.map((v) => (
-                  <div key={v.id} style={vacancyCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <span style={companyLabelText}><Building2 size={12} style={{ display: 'inline', marginRight: '4px' }} /> {v.empresa}</span>
-                        <h3 style={vacancyTitleText}>{v.puesto}</h3>
-                      </div>
-                      <span style={salaryBadge}>$ {Number(v.salario).toLocaleString('es-AR')} ARS</span>
-                    </div>
-
-                    <div style={tagRowStyle}>
-                      <span style={pillBadge}><MapPin size={11} /> {v.modalidad}</span>
-                      <span style={pillBadge}><Clock size={11} /> {v.jornada}</span>
-                      <span style={{ ...pillBadge, backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171' }}>
-                        <CalendarDays size={11} /> Cierra: {v.vencimiento}
-                      </span>
-                    </div>
-
-                    <p style={vacancyDescriptionText}>{v.descripcion}</p>
-                    
-                    <div style={{ marginBottom: '16px', fontSize: '13px' }}>
-                      <strong style={{ color: '#94a3b8' }}>Requisitos:</strong> <span style={{ color: '#cbd5e1' }}>{v.competencias}</span>
-                    </div>
-
-                    <button onClick={() => handlePostularse(v)} style={btnApplyJob}>
-                      Enviar mi Currículum
-                    </button>
-                  </div>
-                ))
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Arrastrá o cargá tu Currículum Base</h3>
+              <input type="file" accept=".pdf,.doc,.docx" onChange={handleCvChange} style={{ margin: '20px 0', display: 'block' }} />
+              {atsScore && (
+                <div style={{ marginTop: '20px', padding: '20px', background: '#f0fdf4', borderLeft: '4px solid #22c55e', borderRadius: '6px' }}>
+                  <h4 style={{ color: '#166534', margin: '0 0 10px 0' }}>📈 Puntuación del Robot ATS: {atsScore.score}%</h4>
+                  <ul style={{ margin: 0, paddingLeft: '20px', color: '#1e293b', fontSize: '14px' }}>
+                    {atsScore.consejos.map((c, i) => <li key={i} style={{ marginBottom: '5px' }}>{c}</li>)}
+                  </ul>
+                </div>
               )}
             </div>
           </div>
         )}
 
-        {/* ============================================== */}
-        {/* SECCIÓN 2: PUESTOS SOLICITADOS (MIS POSTULACIONES) */}
-        {/* ============================================== */}
-        {seccionActiva === 'mis-postulaciones' && (
-          <div style={cardContainer}>
-            <h2 style={cardTitleStyle}><Briefcase size={22} style={{ color: '#10b981' }} /> Historial de Puestos Solicitados</h2>
-            <p style={{ margin: '-4px 0 20px 0', fontSize: '14px', color: '#94a3b8' }}>
-              Revisa el estado en tiempo real de los procesos de selección en los que estás participando.
-            </p>
+        {activeTab === 'formularios' && (
+          <div>
+            <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Gestión de Secciones y Habilidades</h2>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Perfil Profesional Corto</h3>
+              <textarea value={perfilCandidato} onChange={(e) => setPerfilCandidato(e.target.value)} rows="3" style={{ width: '100%', padding: '10px', marginTop: '10px', borderRadius: '6px', border: '1px solid #ccc' }}></textarea>
+            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {misPostulaciones.map((p) => (
-                <div key={p.id} style={myApplicationRow}>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '16px', color: '#f8fafc' }}>{p.puesto}</h4>
-                    <span style={{ fontSize: '13px', color: '#38bdf8' }}>{p.empresa} • Solicitado el {p.fechaAplicacion}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={statusBadge}>{p.estado}</span>
-                  </div>
-                </div>
-              ))}
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Habilidades Clave</h3>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <select value={nuevaHabilidad} onChange={(e) => setNuevaHabilidad(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                  <option value="">-- Seleccionar o sugerir habilidad --</option>
+                  {listaHabilidadesSugeridas.map((hab, i) => <option key={i} value={hab}>{hab}</option>)}
+                </select>
+                <button type="button" onClick={addHabilidadManual} style={{ background: '#00458e', color: '#fff', border: 'none', padding: '0 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Añadir</button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '15px' }}>
+                {habilidades.map((h, i) => <span key={i} style={{ background: '#e2e8f0', color: '#0f172a', padding: '5px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>{h}</span>)}
+              </div>
+            </div>
+
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Conocimientos Complementarios</h3>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <select value={nuevoConocimiento} onChange={(e) => setNuevoConocimiento(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                  <option value="">-- Seleccionar conocimiento adicional --</option>
+                  {listaConocimientosSugeridas.map((con, i) => <option key={i} value={con}>{con}</option>)}
+                </select>
+                <button type="button" onClick={addConocimientoManual} style={{ background: '#00458e', color: '#fff', border: 'none', padding: '0 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Añadir</button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '15px' }}>
+                {conocimientos.map((c, i) => <span key={i} style={{ background: '#dbeafe', color: '#1e40af', padding: '5px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>{c}</span>)}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <h3>Historial de Estudios</h3>
+                <form onSubmit={addEstudioManual} style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input type="text" placeholder="Título obtenido" value={nuevoEstudio.titulo} onChange={(e) => setNuevoEstudio({...nuevoEstudio, titulo: e.target.value})} required style={{ padding: '8px', border: '1px solid #ccc' }} />
+                  <input type="text" placeholder="Institución" value={nuevoEstudio.institucion} onChange={(e) => setNuevoEstudio({...nuevoEstudio, institucion: e.target.value})} required style={{ padding: '8px', border: '1px solid #ccc' }} />
+                  <input type="text" placeholder="Año" value={nuevoEstudio.año} onChange={(e) => setNuevoEstudio({...nuevoEstudio, año: e.target.value})} required style={{ padding: '8px', border: '1px solid #ccc' }} />
+                  <button style={{ background: '#00458e', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer' }}>+ Agregar</button>
+                </form>
+                <ul style={{ marginTop: '10px' }}>{estudios.map((e, i) => <li key={i}>{e.titulo} - {e.institucion} ({e.año})</li>)}</ul>
+              </div>
+
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <h3>Experiencia Laboral</h3>
+                <form onSubmit={addExperienciaManual} style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input type="text" placeholder="Puesto" value={nuevaExperiencia.puesto} onChange={(e) => setNuevaExperiencia({...nuevaExperiencia, puesto: e.target.value})} required style={{ padding: '8px', border: '1px solid #ccc' }} />
+                  <input type="text" placeholder="Empresa" value={nuevaExperiencia.empresa} onChange={(e) => setNuevaExperiencia({...nuevaExperiencia, empresa: e.target.value})} required style={{ padding: '8px', border: '1px solid #ccc' }} />
+                  <input type="text" placeholder="Periodo" value={nuevaExperiencia.periodo} onChange={(e) => setNuevaExperiencia({...nuevaExperiencia, periodo: e.target.value})} required style={{ padding: '8px', border: '1px solid #ccc' }} />
+                  <button style={{ background: '#00458e', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer' }}>+ Agregar</button>
+                </form>
+                <ul style={{ marginTop: '10px' }}>{experiencias.map((exp, i) => <li key={i}>{exp.puesto} en {exp.empresa} ({exp.periodo})</li>)}</ul>
+              </div>
+            </div>
+
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Capacitaciones y Cursos</h3>
+              <form onSubmit={addCapacitacionManual} style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                <input type="text" placeholder="Capacitación" value={nuevaCapacitacion.nombre} onChange={(e) => setNuevaCapacitacion({...nuevaCapacitacion, nombre: e.target.value})} required style={{ flex: 1, padding: '10px', border: '1px solid #ccc' }} />
+                <input type="text" placeholder="Entidad" value={nuevaCapacitacion.entidad} onChange={(e) => setNuevaCapacitacion({...nuevaCapacitacion, entidad: e.target.value})} required style={{ flex: 1, padding: '10px', border: '1px solid #ccc' }} />
+                <button style={{ background: '#00458e', color: '#fff', border: 'none', padding: '0 20px', borderRadius: '6px', cursor: 'pointer' }}>+ Añadir</button>
+              </form>
+              <ul style={{ marginTop: '15px' }}>{capacitaciones.map((cap, i) => <li key={i}>{cap.nombre} ({cap.entidad})</li>)}</ul>
             </div>
           </div>
         )}
 
-        {/* ============================================== */}
-        {/* SECCIÓN 3: PERFILES DE LAS EMPRESAS            */}
-        {/* ============================================== */}
-        {seccionActiva === 'empresas' && (
-          <div style={cardContainer}>
-            <h2 style={cardTitleStyle}><Building2 size={22} style={{ color: '#3b82f6' }} /> Directorio de Empresas Asociadas</h2>
-            <p style={{ margin: '-4px 0 20px 0', fontSize: '14px', color: '#94a3b8' }}>
-              Conoce en profundidad la cultura, ubicación y rubros industriales de las organizaciones registradas.
-            </p>
-
-            <div style={candidateGrid}>
-              {perfilesEmpresas.map((emp) => (
-                <div key={emp.id} style={companyProfileCard}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                      <div style={companySquareLogo}>{emp.nombre[0]}</div>
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '16px', color: '#f8fafc' }}>{emp.nombre}</h4>
-                        <span style={{ fontSize: '11px', color: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{emp.rubro}</span>
-                      </div>
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#94a3b8', margin: '10px 0' }}>{emp.descripcion}</p>
-                  </div>
-
-                  <div style={companyCardFooter}>
-                    <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
-                      📍 {emp.ubicacion} <br/> 👥 {emp.empleados} empleados
-                    </div>
-                    <button onClick={() => { setBusquedaTexto(emp.nombre); setSeccionActiva('buscar-vacantes'); }} style={btnViewVacancies}>
-                      Ver Vacantes
-                    </button>
-                  </div>
+        {activeTab === 'documentos' && (
+          <div>
+            <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2>Documentación Profesional Generada</h2>
+              <button onClick={descargarPdfAts} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                🖨️ Descargar CV con Filtros ATS (PDF)
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <h3>Carta de Presentación Corporativa</h3>
+                <textarea value={cartaPresentacion} onChange={(e) => setCartaPresentacion(e.target.value)} rows="12" style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', background: '#fafafa' }}></textarea>
+              </div>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <h3>Estructura del Perfil en Emplea 360</h3>
+                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <p><strong>Candidato:</strong> {nombreUsuario}</p>
+                  <p><strong>Resumen:</strong> {perfilCandidato}</p>
+                  <p><strong>Habilidades:</strong> {habilidades.join(' · ')}</p>
+                  <p><strong>Conocimientos:</strong> {conocimientos.join(' · ')}</p>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         )}
 
-      </main>
+        {activeTab === 'calendario' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2>Mis Videollamadas Agendadas</h2>
+              <button onClick={abrirModal} style={{ background: '#00458e', color: '#fff', border: 'none', padding: '12px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>➕ Agregar Entrevista</button>
+            </div>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
+                    <th>Empresa</th><th>Fecha</th><th>Hora</th><th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entrevistas.map((ent) => (
+                    <tr key={ent.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '12px', fontWeight: 'bold' }}>{ent.empresa}</td><td>{ent.fecha}</td><td>{ent.hora} Hs</td><td><span style={{ background: '#fef3c7', color: '#d97706', padding: '4px 8px', borderRadius: '4px' }}>{ent.estado}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ background: '#fff', padding: '25px', borderRadius: '12px' }}>
+              <h3 style={{ textAlign: 'center' }}>Mayo 2026</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px', textAlign: 'center', fontWeight: 'bold', marginBottom: '10px' }}>
+                <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px' }}>
+                {diasMes.map((dia) => {
+                  const evs = tieneEntrevistaElDia(dia);
+                  return (
+                    <div key={dia} style={{ minHeight: '80px', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', background: evs.length > 0 ? '#eff6ff' : '#fff' }}>
+                      <span>{dia}</span>
+                      {evs.map((e, i) => <div key={i} style={{ background: '#00458e', color: '#fff', fontSize: '9px', marginTop: '4px', padding: '2px', borderRadius: '3px' }}>{e.empresa}</div>)}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑAS ADICIONALES (Marcadores de posición originales) */}
+        {['academia', 'analisis', 'chat'].includes(activeTab) && (
+          <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+            <h2>Sección en construcción 🚀</h2>
+            <p style={{ color: '#64748b' }}>Estamos preparando las mejores herramientas para optimizar tu perfil de Candidato.</p>
+          </div>
+        )}
+
+      </div>
+
+      {/* Ventana Modal para Añadir Entrevistas */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
+          <form onSubmit={handleAddEntrevistaSubmit} style={{ background: '#fff', padding: '30px', borderRadius: '12px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <h3>Programar nueva entrevista</h3>
+            <input type="text" placeholder="Nombre de la empresa" value={nuevaEntrevista.empresa} onChange={(e) => setNuevaEntrevista({...nuevaEntrevista, empresa: e.target.value})} required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+            <input type="date" value={nuevaEntrevista.fecha} onChange={(e) => setNuevaEntrevista({...nuevaEntrevista, fecha: e.target.value})} required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+            <input type="time" value={nuevaEntrevista.hora} onChange={(e) => setNuevaEntrevista({...nuevaEntrevista, hora: e.target.value})} required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+              <button type="button" onClick={cerrarModal} style={{ padding: '10px 15px', background: '#cbd5e1', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Cancelar</button>
+              <button type="submit" style={{ padding: '10px 15px', background: '#00458e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Agendar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
     </div>
   );
 }
-
-// ==============================================
-// HOJA DE ESTILOS CSS IN JS (ADAPTACIONES)
-// ==============================================
-const dashboardLayout = { display: 'flex', minHeight: '100vh', backgroundColor: '#0f172a', fontFamily: '"Segoe UI", Roboto, sans-serif', color: '#f8fafc' };
-const sidebarStyle = { width: '280px', backgroundColor: '#1e293b', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '24px 16px', boxSizing: 'border-box', borderRight: '1px solid #334155' };
-const brandStyle = { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' };
-const logoIcon = { width: '38px', height: '38px', borderRadius: '8px', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' };
-const brandTitle = { fontSize: '18px', margin: 0, fontWeight: 700 };
-const brandSub = { fontSize: '11px', color: '#94a3b8' };
-const userCardNav = { backgroundColor: 'rgba(15,23,42,0.4)', borderRadius: '12px', padding: '16px', textAlign: 'center', marginBottom: '24px' };
-const avatarPlaceholder = { width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', margin: '0 auto 10px auto', color: '#fff' };
-const userNameText = { margin: 0, fontSize: '15px' };
-const userRoleText = { margin: '2px 0 0 0', fontSize: '12px', fontWeight: 500 };
-const navGroup = { display: 'flex', flexDirection: 'column', gap: '6px' };
-const btnNav = { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 14px', border: 'none', backgroundColor: 'transparent', color: '#94a3b8', textAlign: 'left', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' };
-const btnNavActive = { ...btnNav, backgroundColor: 'rgba(59,130,246,0.1)', color: '#38bdf8', fontWeight: 600 };
-const btnLogout = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '8px', border: '1px solid rgba(244,63,94,0.2)', backgroundColor: 'rgba(244,63,94,0.05)', color: '#f43f5e', cursor: 'pointer', fontWeight: 600, fontSize: '14px' };
-
-const mainContentArea = { flex: 1, padding: '40px', boxSizing: 'border-box', overflowY: 'auto' };
-const headerSection = { display: 'flex', justifyContent: 'space-between', marginBottom: '24px' };
-const titleMain = { fontSize: '26px', margin: 0 };
-const subtitleMain = { margin: '6px 0 0 0', color: '#94a3b8', fontSize: '14px' };
-const cardContainer = { backgroundColor: '#1e293b', borderRadius: '16px', padding: '24px', height: 'fit-content', border: '1px solid rgba(255,255,255,0.05)' };
-const cardTitleStyle = { margin: '0 0 8px 0', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' };
-
-const inlineInputFull = { width: '100%', padding: '11px 12px', borderRadius: '8px', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#f8fafc', boxSizing: 'border-box', fontSize: '14px' };
-const selectStyle = { width: '100%', padding: '11px 12px', borderRadius: '8px', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#f8fafc', boxSizing: 'border-box', fontSize: '14px', cursor: 'pointer' };
-
-// Barra de Filtros
-const searchFilterBar = { display: 'flex', gap: '12px', marginBottom: '24px', backgroundColor: '#1e293b', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' };
-const searchIconInside = { position: 'absolute', left: '14px', top: '13px', color: '#64748b' };
-
-// Grilla de Vacantes
-const vacanciesGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' };
-const vacancyCard = { backgroundColor: '#1e293b', border: '1px solid #334155', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' };
-const companyLabelText = { fontSize: '12px', color: '#94a3b8', fontWeight: 600, display: 'block', marginBottom: '2px' };
-const vacancyTitleText = { margin: 0, fontSize: '18px', color: '#f8fafc' };
-const vacancyDescriptionText = { fontSize: '13px', color: '#cbd5e1', margin: '12px 0', lineHeight: '1.5' };
-const salaryBadge = { backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', padding: '4px 10px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', height: 'fit-content' };
-const tagRowStyle = { display: 'flex', gap: '6px', margin: '10px 0', flexWrap: 'wrap' };
-const pillBadge = { display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#0f172a', color: '#cbd5e1', padding: '4px 8px', borderRadius: '6px', fontSize: '11px' };
-const btnApplyJob = { width: '100%', padding: '11px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', transition: 'background 0.2s' };
-const noResultsBox = { padding: '40px', backgroundColor: '#1e293b', borderRadius: '12px', textAling: 'center', color: '#64748b', width: '100%', gridColumn: '1 / -1', textAlign: 'center' };
-
-// Mis Postulaciones
-const myApplicationRow = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #334155' };
-const statusBadge = { backgroundColor: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 };
-
-// Tarjetas de Empresas
-const candidateGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginTop: '15px' };
-const companyProfileCard = { backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '180px' };
-const companySquareLogo = { width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold', color: '#fff' };
-const companyCardFooter = { borderTop: '1px solid #334155', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' };
-const btnViewVacancies = { padding: '6px 12px', backgroundColor: 'transparent', color: '#38bdf8', border: '1px solid #38bdf8', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 };
