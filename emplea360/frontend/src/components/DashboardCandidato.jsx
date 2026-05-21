@@ -13,7 +13,7 @@ export default function DashboardCandidato() {
   const [activeTab, setActiveTab] = useState('perfil'); 
   const [sidebarAbierto, setSidebarAbierto] = useState(true); 
   const [cvNombreArchivo, setCvNombreArchivo] = useState(''); 
-  const [previewFoto, setPreviewFoto] = useState(null); // Guardará el Base64 persistente de la foto
+  const [previewFoto, setPreviewFoto] = useState(null); 
   const [atsScore, setAtsScore] = useState(null);
   
   const [nombreUsuario, setNombreUsuario] = useState(() => {
@@ -86,7 +86,6 @@ export default function DashboardCandidato() {
           if (datos.capacitaciones) setCapacitaciones(typeof datos.capacitaciones === 'string' ? JSON.parse(datos.capacitaciones) : datos.capacitaciones);
           if (datos.conocimientos) setConocimientos(typeof datos.conocimientos === 'string' ? JSON.parse(datos.conocimientos) : datos.conocimientos);
           
-          // 🔥 Recuperación y persistencia de foto de perfil y estados del CV
           if (datos.foto_url || datos.url_foto) setPreviewFoto(datos.foto_url || datos.url_foto);
           if (datos.cv_nombre) setCvNombreArchivo(datos.cv_nombre);
           if (datos.puntuacion_ats) {
@@ -154,16 +153,15 @@ export default function DashboardCandidato() {
         carta_presentacion: datosOpcionales.carta_presentacion !== undefined ? datosOpcionales.carta_presentacion : cartaPresentacion,
         habilidades: JSON.stringify(datosOpcionales.habilidades || habilidades), 
         estudios: JSON.stringify(datosOpcionales.estudios || estudios),
-        experiences: JSON.stringify(datosOpcionales.experiencias || experiencias), 
+        experiencias: JSON.stringify(datosOpcionales.experiencias || experiencias), // Corregido idioma
         capacitaciones: JSON.stringify(datosOpcionales.capacitaciones || capacitaciones),
         conocimientos: JSON.stringify(datosOpcionales.conocimientos || conocimientos),
-        // Persistencia explícita de adjuntos
         foto_url: datosOpcionales.foto_url !== undefined ? datosOpcionales.foto_url : previewFoto,
         cv_nombre: datosOpcionales.cv_nombre !== undefined ? datosOpcionales.cv_nombre : cvNombreArchivo,
         puntuacion_ats: datosOpcionales.puntuacion_ats !== undefined ? datosOpcionales.puntuacion_ats : (atsScore ? atsScore.score : 0)
       };
 
-      await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
+      const respuesta = await fetch(`${URL_BACKEND}/api/candidato/perfil`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -171,15 +169,27 @@ export default function DashboardCandidato() {
         },
         body: JSON.stringify(payload)
       });
-      console.log("💾 Cambios impactados con éxito en PostgreSQL.");
+
+      if (respuesta.ok) {
+        console.log("💾 Cambios impactados con éxito en PostgreSQL.");
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error("Error de persistencia automatizada:", error);
+      return false;
     }
   };
 
-  useEffect(() => {
-    guardarDatosEnBaseDeDatos();
-  }, [perfilCandidato, cartaPresentacion, habilidades, estudios, experiencias, capacitaciones, conocimientos]);
+  // Botón manual de guardado definitivo
+  const handleGuardarManual = async () => {
+    const exito = await guardarDatosEnBaseDeDatos();
+    if (exito) {
+      alert("💾 ¡Perfil y CV guardados exitosamente en la base de datos! Ya podés cerrar sesión con tranquilidad.");
+    } else {
+      alert("❌ Hubo un inconveniente al guardar los datos en el servidor.");
+    }
+  };
 
   // ==========================================
   // ⚙️ LOGICA DE CONTROL DE EVENTOS
@@ -205,11 +215,9 @@ export default function DashboardCandidato() {
         carta_presentacion: nuevaCarta,
         habilidades: habs
       });
-      alert("✨ ¡CV Procesado y sincronizado de forma permanente!");
     }
   };
 
-  // Conversión a Base64 para guardado seguro de la foto de perfil en la Base de Datos
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -217,7 +225,6 @@ export default function DashboardCandidato() {
       reader.onloadend = () => {
         setPreviewFoto(reader.result);
         guardarDatosEnBaseDeDatos({ foto_url: reader.result });
-        alert("📸 ¡Foto de perfil guardada con éxito en tu cuenta de usuario!");
       };
       reader.readAsDataURL(file);
     }
@@ -258,14 +265,6 @@ export default function DashboardCandidato() {
     }
   };
 
-  const addCapacitacionManual = (e) => {
-    e.preventDefault();
-    if (nuevaCapacitacion.nombre && nuevaCapacitacion.entidad) {
-      setCapacitaciones([...capacitaciones, nuevaCapacitacion]);
-      setNuevaCapacitacion({ nombre: '', entidad: '' });
-    }
-  };
-
   const descargarPdfAts = () => {
     const vent = window.open('', '_blank');
     vent.document.write(`<html><body><h2>CV ATS DE ${nombreUsuario.toUpperCase()}</h2><p>${perfilCandidato}</p><h3>Habilidades</h3><p>${habilidades.join(', ')}</p><script>window.print();window.close();</script></body></html>`);
@@ -294,7 +293,7 @@ export default function DashboardCandidato() {
     <div style={{ display: 'flex', height: '100vh', background: '#f8fafc', fontFamily: 'sans-serif', overflow: 'hidden' }}>
       
       {/* SIDEBAR COLAPSABLE */}
-      <div style={{ width: sidebarAbierto ? '280px' : '0px', opacity: sidebarAbierto ? 1 : 0, background: '#0f172a', color: '#fff', padding: sidebarAbierto ? '20px' : '0px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', transition: 'all 0.3s ease', overflow: 'hidden' }}>
+      <div style={{ width: sidebarAbierto ? '280px' : '0px', opacity: sidebarAbierto ? 1 : 0, background: '#0f172a', color: '#fff', padding: sidebarAbierto ? '20px' : '0px', display: 'flex', flexDirection: 'column', justifyBetween: 'space-between', transition: 'all 0.3s ease', overflow: 'hidden' }}>
         {sidebarAbierto && (
           <div>
             <h2 style={{ color: '#38bdf8', textAlign: 'center', marginBottom: '30px' }}>Emplea 360</h2>
@@ -326,16 +325,26 @@ export default function DashboardCandidato() {
 
         <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
           
-          {/* 🌟 UNIFICACIÓN: CARGA, FOTO Y DOCUMENTOS GENERADOS */}
+          {/* CARGA, FOTO Y DOCUMENTOS GENERADOS */}
           {activeTab === 'perfil' && (
             <div>
-              <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Perfil Inteligente y Documentación</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ color: '#0f172a', margin: 0 }}>Perfil Inteligente y Documentación</h2>
+                
+                {/* 🌟 BOTÓN SOLICITADO: GUARDAR EN LA BASE DE DATOS */}
+                <button 
+                  onClick={handleGuardarManual} 
+                  style={{ background: '#00458e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0, 69, 142, 0.15)' }}
+                >
+                  💾 Guardar Perfil en Base de Datos
+                </button>
+              </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                 <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                   <h3>📸 Foto de Perfil Corporativa</h3>
                   <input type="file" accept="image/*" onChange={handleFotoChange} style={{ marginTop: '10px' }} />
-                  {previewFoto && <p style={{ color: '#22c55e', fontSize: '13px', marginTop: '5px' }}>✓ Imagen de perfil almacenada en la Base de Datos.</p>}
+                  {previewFoto && <p style={{ color: '#22c55e', fontSize: '13px', marginTop: '5px' }}>✓ Imagen de perfil lista para guardar.</p>}
                 </div>
 
                 <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
@@ -362,10 +371,13 @@ export default function DashboardCandidato() {
             </div>
           )}
 
-          {/* DATOS Y ESTRUCTURA (CON CONOCIMIENTOS COMPLEMENTARIOS ESCRIBIBLES) */}
+          {/* DATOS Y ESTRUCTURA */}
           {activeTab === 'formularios' && (
             <div>
-              <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Estructuración de Secciones Curriculum</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ color: '#0f172a', margin: 0 }}>Estructuración de Secciones Curriculum</h2>
+                <button onClick={handleGuardarManual} style={{ background: '#00458e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>💾 Guardar Cambios</button>
+              </div>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <h3>Resumen Profesional</h3>
                 <textarea value={perfilCandidato} onChange={(e) => setPerfilCandidato(e.target.value)} rows="3" style={{ width: '100%', padding: '10px', marginTop: '10px' }}></textarea>
@@ -407,7 +419,7 @@ export default function DashboardCandidato() {
             </div>
           )}
 
-          {/* 🌟 RESTAURACIÓN DEL CALENDARIO INTERACTIVO CON AGENDAMIENTO MIXTO */}
+          {/* CALENDARIO INTERACTIVO */}
           {activeTab === 'calendario' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -497,14 +509,13 @@ export default function DashboardCandidato() {
             </div>
           )}
 
-          {/* 🌟 SALA DE CHAT CON VISTA REAL DE LAS EMPRESAS REGISTRADAS */}
+          {/* SALA DE CHAT */}
           {activeTab === 'chat' && (
             <div>
               <h2 style={{ color: '#0f172a', marginBottom: '5px' }}>Sala de Chat Corporativa</h2>
               <p style={{ color: '#64748b', marginBottom: '20px' }}>Iniciá conversaciones en canales abiertos con las empresas de la red de Emplea 360.</p>
               
               <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '20px', background: '#fff', height: '500px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                {/* Panel izquierdo: Lista de Empresas */}
                 <div style={{ borderRight: '1px solid #e2e8f0', background: '#f8fafc', padding: '15px', overflowY: 'auto' }}>
                   <h4 style={{ margin: '0 0 10px 0', color: '#475569' }}>Empresas Vinculadas</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -516,7 +527,6 @@ export default function DashboardCandidato() {
                     ))}
                   </div>
                 </div>
-                {/* Panel Derecho: Mensajes */}
                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px' }}>
                   <div>
                     <h3 style={{ margin: 0, color: '#0f172a' }}>Canal: Tech San Juan S.A.</h3>
