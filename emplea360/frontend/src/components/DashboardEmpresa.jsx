@@ -3,19 +3,24 @@ import React, { useState, useEffect } from 'react';
 
 export default function DashboardEmpresa() {
   // --- ESTADOS PRINCIPALES ---
-  const [vistaActual, setVistaActual] = useState('reclutamiento'); // 'reclutamiento' | 'calendario' | 'mensajes' | 'crear-vacante'
+  // Vistas: 'reclutamiento' | 'calendario' | 'mensajes' | 'perfiles' | 'archivos' | 'crear-vacante'
+  const [vistaActual, setVistaActual] = useState('reclutamiento'); 
   const [nombreEmpresa, setNombreEmpresa] = useState('Empresa');
   const [filtroHabilidad, setFiltroHabilidad] = useState('');
+  const [vacanteSeleccionadaArchivos, setVacanteSeleccionadaArchivos] = useState('todas');
   
-  // Lista de candidatos dinámica
+  // Lista de candidatos dinámica con datos expandidos para perfiles y archivos
   const [candidatos, setCandidatos] = useState([]);
 
-  // Formulario para nueva postulación/vacante
+  // Formulario para nueva postulación/vacante extendido
   const [nuevaVacante, setNuevaVacante] = useState({
     puesto: '',
     descripcion: '',
     competencias: '',
-    salario: ''
+    salario: '',
+    modalidad: 'Presencial', // Presencial | Remoto | Híbrido
+    jornada: 'Full-time',     // Full-time | Part-time
+    fechaVencimiento: ''
   });
 
   // --- CARGA DE DATOS INICIAL ---
@@ -26,9 +31,45 @@ export default function DashboardEmpresa() {
     }
 
     const mockCandidatos = [
-      { id: 1, nombre_completo: "Carlos Gómez", habilidades: ["Ventas B2B", "CRM", "Negociación"], experiencia_anios: 5, porcentaje_compatibilidad: 95, fecha_entrevista: "2026-05-25 15:00", ultimo_mensaje: "Hola, quedo atento al enlace de la reunión." },
-      { id: 2, nombre_completo: "María Castro", habilidades: ["Ventas B2B", "Cierre de Ventas"], experiencia_anios: 3, porcentaje_compatibilidad: 78, fecha_entrevista: "2026-05-27 11:30", ultimo_mensaje: "Muchas gracias por la oportunidad." },
-      { id: 3, nombre_completo: "Juan Diaz", habilidades: ["Atención al Cliente"], experiencia_anios: 1, porcentaje_compatibilidad: 42, fecha_entrevista: null, ultimo_mensaje: "Envié mi CV actualizado." }
+      { 
+        id: 1, 
+        nombre_completo: "Carlos Gómez", 
+        email: "carlos.gomez@mail.com",
+        telefono: "+54 9 264 123-4567",
+        habilidades: ["Ventas B2B", "CRM", "Negociación"], 
+        experiencia_anios: 5, 
+        porcentaje_compatibilidad: 95, 
+        fecha_entrevista: "2026-05-25 15:00", 
+        ultimo_mensaje: "Hola, quedo atento al enlace de la reunión.",
+        vacante_postulada: "Ejecutivo de Cuentas",
+        archivo_cv: "CV_Carlos_Gomez_Ventas.pdf"
+      },
+      { 
+        id: 2, 
+        nombre_completo: "María Castro", 
+        email: "maria.castro@mail.com",
+        telefono: "+54 9 264 987-6543",
+        habilidades: ["Ventas B2B", "Cierre de Ventas"], 
+        experiencia_anios: 3, 
+        porcentaje_compatibilidad: 78, 
+        fecha_entrevista: "2026-05-27 11:30", 
+        ultimo_mensaje: "Muchas gracias por la oportunidad.",
+        vacante_postulada: "Ejecutivo de Cuentas",
+        archivo_cv: "CV_Maria_Castro_Comercial.pdf"
+      },
+      { 
+        id: 3, 
+        nombre_completo: "Juan Diaz", 
+        email: "juan.diaz@mail.com",
+        telefono: "+54 9 264 555-0192",
+        habilidades: ["Atención al Cliente"], 
+        experiencia_anios: 1, 
+        porcentaje_compatibilidad: 42, 
+        fecha_entrevista: null, 
+        ultimo_mensaje: "Envié mi CV actualizado.",
+        vacante_postulada: "Atención al Cliente Nocturna",
+        archivo_cv: "CV_Juan_Diaz_Atencion.pdf"
+      }
     ];
     setCandidatos(mockCandidatos.sort((a, b) => b.porcentaje_compatibilidad - a.porcentaje_compatibilidad));
   }, []);
@@ -48,21 +89,25 @@ export default function DashboardEmpresa() {
   const handleCerrarSesion = () => {
     if (confirm('¿Cerrar sesión en Emplea 360?')) {
       localStorage.clear();
-      window.location.href = '/'; // O usar navigate('/') si pasás el hook por props
+      window.location.href = '/';
     }
   };
 
   const handleGuardarVacante = (e) => {
     e.preventDefault();
-    alert(`¡Postulación para "${nuevaVacante.puesto}" agregada con éxito!\nLos candidatos ahora podrán visualizarla y subir sus CVs desde su panel.`);
-    setNuevaVacante({ puesto: '', descripcion: '', competencias: '', salario: '' });
-    setVistaActual('reclutamiento'); // Volver al panel principal
+    alert(`¡Postulación para "${nuevaVacante.puesto}" agregada con éxito!\nModalidad: ${nuevaVacante.modalidad} (${nuevaVacante.jornada})\nVence el: ${nuevaVacante.fechaVencimiento}\nLos candidatos ya pueden aplicar y subir sus archivos.`);
+    setNuevaVacante({ puesto: '', descripcion: '', competencias: '', salario: '', modalidad: 'Presencial', jornada: 'Full-time', fechaVencimiento: '' });
+    setVistaActual('reclutamiento');
   };
 
-  // Filtrado de candidatos en base a la barra de búsqueda
   const candidatosFiltrados = candidatos.filter(c => 
     c.habilidades.some(h => h.toLowerCase().includes(filtroHabilidad.toLowerCase()))
   );
+
+  // Filtrar archivos en base a la vacante seleccionada en el visor de documentos
+  const archivosFiltrados = vacanteSeleccionadaArchivos === 'todas' 
+    ? candidatos 
+    : candidatos.filter(c => c.vacante_postulada === vacanteSeleccionadaArchivos);
 
   return (
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
@@ -79,8 +124,8 @@ export default function DashboardEmpresa() {
       </div>
       <hr />
 
-      {/* --- MENÚ DESPLEGABLE / BARRA DE NAVEGACIÓN --- */}
-      <div style={{ display: 'flex', gap: '10px', margin: '20px 0', background: '#f1f5f9', padding: '10px', borderRadius: '8px' }}>
+      {/* --- MENÚ DE NAVEGACIÓN EXTENDIDO --- */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', margin: '20px 0', background: '#f1f5f9', padding: '10px', borderRadius: '8px' }}>
         <button 
           onClick={() => setVistaActual('reclutamiento')}
           style={{ padding: '10px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', background: vistaActual === 'reclutamiento' ? '#00458e' : 'transparent', color: vistaActual === 'reclutamiento' ? 'white' : '#475569' }}
@@ -88,34 +133,46 @@ export default function DashboardEmpresa() {
           🔍 Filtro ATS / Postulantes
         </button>
         <button 
+          onClick={() => setVistaActual('perfiles')}
+          style={{ padding: '10px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', background: vistaActual === 'perfiles' ? '#00458e' : 'transparent', color: vistaActual === 'perfiles' ? 'white' : '#475569' }}
+        >
+          👤 Perfiles de Candidatos
+        </button>
+        <button 
+          onClick={() => setVistaActual('archivos')}
+          style={{ padding: '10px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', background: vistaActual === 'archivos' ? '#00458e' : 'transparent', color: vistaActual === 'archivos' ? 'white' : '#475569' }}
+        >
+          📁 Archivos por Postulación
+        </button>
+        <button 
           onClick={() => setVistaActual('calendario')}
           style={{ padding: '10px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', background: vistaActual === 'calendario' ? '#00458e' : 'transparent', color: vistaActual === 'calendario' ? 'white' : '#475569' }}
         >
-          📅 Calendario de Entrevistas
+          📅 Calendario Citas
         </button>
         <button 
           onClick={() => setVistaActual('mensajes')}
           style={{ padding: '10px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', background: vistaActual === 'mensajes' ? '#00458e' : 'transparent', color: vistaActual === 'mensajes' ? 'white' : '#475569' }}
         >
-          💬 Mensajes Directos
+          💬 Mensajes
         </button>
         <button 
           onClick={() => setVistaActual('crear-vacante')}
           style={{ padding: '10px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', background: vistaActual === 'crear-vacante' ? '#10b981' : 'transparent', color: vistaActual === 'crear-vacante' ? 'white' : '#475569', marginLeft: 'auto' }}
         >
-          ➕ Agregar Postulación (Puesto)
+          ➕ Agregar Postulación
         </button>
       </div>
 
       {/* ========================================================= */}
-      {/* VISTA 1: LISTADO DE RECLUTAMIENTO PRINCIPAL (TU VISTA ORIGINAL) */}
+      {/* VISTA 1: LISTADO DE RECLUTAMIENTO PRINCIPAL */}
       {/* ========================================================= */}
       {vistaActual === 'reclutamiento' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', margin: '20px 0' }}>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <h3>Vacantes Activas</h3>
-              <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00458e', margin: 0 }}>1</p>
+              <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#00458e', margin: 0 }}>2</p>
             </div>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <h3>Postulantes en Filtro ATS</h3>
@@ -137,10 +194,10 @@ export default function DashboardEmpresa() {
           <h3>Candidatos Evaluados (Orden de Compatibilidad Automática)</h3>
           <div style={{ display: 'grid', gap: '15px' }}>
             {candidatosFiltrados.map((c, index) => (
-              <div key={c.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', borderLeft: index === 0 ? '5px solid #10b981' : '5px solid #ccc', borderTop: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+              <div key={c.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', borderLeft: index === 0 ? '5px solid #10b981' : '5px solid #ccc', border: '1px solid #e2e8f0' }}>
                 <div>
                   <h4 style={{ margin: '0 0 5px 0' }}>{c.nombre_completo} {index === 0 && <span style={{ background: '#d1fae5', color: '#065f46', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '10px', marginLeft: '10px' }}>Top Match</span>}</h4>
-                  <p style={{ margin: '0', color: '#555', fontSize: '0.9rem' }}><strong>Experiencia:</strong> {c.experiencia_anios} años</p>
+                  <p style={{ margin: '0', color: '#555', fontSize: '0.9rem' }}><strong>Vacante aplicada:</strong> {c.vacante_postulada}</p>
                   <p style={{ margin: '5px 0 0 0', color: '#777', fontSize: '0.85rem' }}><strong>Habilidades:</strong> {c.habilidades.join(', ')}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -155,19 +212,100 @@ export default function DashboardEmpresa() {
       )}
 
       {/* ========================================================= */}
-      {/* VISTA 2: CALENDARIO DE ENTREVISTAS COORDINADAS */}
+      {/* VISTA NUEVA: PERFILES DE CANDIDATOS */}
+      {/* ========================================================= */}
+      {vistaActual === 'perfiles' && (
+        <div>
+          <h3>Perfiles Completos de los Candidatos</h3>
+          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>Información académica, laboral y de contacto provista por los postulantes.</p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+            {candidatos.map(c => (
+              <div key={c.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
+                <div style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '10px', marginBottom: '10px' }}>
+                  <h4 style={{ margin: '0 0 5px 0', color: '#00458e', fontSize: '1.2rem' }}>{c.nombre_completo}</h4>
+                  <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{c.vacante_postulada}</span>
+                </div>
+                <p style={{ margin: '5px 0', fontSize: '14px' }}>📧 <strong>Email:</strong> {c.email}</p>
+                <p style={{ margin: '5px 0', fontSize: '14px' }}>📞 <strong>Teléfono:</strong> {c.telefono}</p>
+                <p style={{ margin: '5px 0', fontSize: '14px' }}>💼 <strong>Experiencia:</strong> {c.experiencia_anios} años demostrables</p>
+                <div style={{ marginTop: '10px' }}>
+                  <strong>Competencias:</strong>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
+                    {c.habilidades.map((h, i) => (
+                      <span key={i} style={{ background: '#f1f5f9', color: '#334155', fontSize: '12px', padding: '4px 8px', borderRadius: '4px' }}>{h}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* VISTA NUEVA: ARCHIVOS POR POSTULACIÓN (CVs) */}
+      {/* ========================================================= */}
+      {vistaActual === 'archivos' && (
+        <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <h3>Repositorio de Documentos y CVs</h3>
+          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>Visualizá y descargá los Currículums adjuntos organizados por cada puesto de trabajo.</p>
+          
+          <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label style={{ fontWeight: 'bold' }}>Seleccionar Postulación:</label>
+            <select 
+              value={vacanteSeleccionadaArchivos} 
+              onChange={(e) => setVacanteSeleccionadaArchivos(e.target.value)}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff' }}
+            >
+              <option value="todas">Todas las vacantes</option>
+              <option value="Ejecutivo de Cuentas">Ejecutivo de Cuentas</option>
+              <option value="Atención al Cliente Nocturna">Atención al Cliente Nocturna</option>
+            </select>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                <th style={{ padding: '12px' }}>Postulante</th>
+                <th style={{ padding: '12px' }}>Puesto Implicado</th>
+                <th style={{ padding: '12px' }}>Archivo de Currículum</th>
+                <th style={{ padding: '12px', textAlign: 'right' }}>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {archivosFiltrados.map(c => (
+                <tr key={c.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '12px', fontWeight: 'bold' }}>{c.nombre_completo}</td>
+                  <td style={{ padding: '12px' }}>{c.vacante_postulada}</td>
+                  <td style={{ padding: '12px', color: '#dc2626' }}>📄 {c.archivo_cv}</td>
+                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                    <button 
+                      onClick={() => alert(`Descargando el archivo remoto: ${c.archivo_cv} ...`)}
+                      style={{ background: '#00458e', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                    >
+                      Descargar CV 📥
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* VISTA 4: CALENDARIO DE ENTREVISTAS */}
       {/* ========================================================= */}
       {vistaActual === 'calendario' && (
         <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           <h3>Agenda de Entrevistas Coordinadas</h3>
-          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>Cronograma de citas programadas automáticamente tras el primer filtro ATS.</p>
-          
           <div style={{ display: 'grid', gap: '15px' }}>
             {candidatos.filter(c => c.fecha_entrevista).map(c => (
               <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px', background: '#f8fafc', borderRadius: '6px', borderLeft: '4px solid #00458e' }}>
                 <div>
                   <h4 style={{ margin: '0 0 5px 0' }}>{c.nombre_completo}</h4>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Puesto: Especialista en Ventas</p>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Puesto: {c.vacante_postulada}</p>
                 </div>
                 <div style={{ background: '#e0f2fe', color: '#0369a1', padding: '8px 15px', borderRadius: '6px', fontWeight: 'bold', fontSize: '14px' }}>
                   📅 {c.fecha_entrevista} hs
@@ -179,28 +317,19 @@ export default function DashboardEmpresa() {
       )}
 
       {/* ========================================================= */}
-      {/* VISTA 3: MENSAJES DIRECTOS (POSTULANTES QUE ENVIARON CV) */}
+      {/* VISTA 5: MENSAJES DIRECTOS */}
       {/* ========================================================= */}
       {vistaActual === 'mensajes' && (
         <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           <h3>Buzón de Comunicación Directa</h3>
-          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>Chats e interacciones inmediatas con postulantes activos.</p>
-          
           <div style={{ display: 'grid', gap: '15px' }}>
             {candidatos.map(c => (
               <div key={c.id} style={{ padding: '15px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ flex: 1, marginRight: '20px' }}>
                   <h4 style={{ margin: '0 0 5px 0', color: '#00458e' }}>{c.nombre_completo}</h4>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#334155', fontStyle: 'italic' }}>
-                    "{c.ultimo_mensaje || 'Sin mensajes recientes.'}"
-                  </p>
+                  <p style={{ margin: 0, fontSize: '14px', color: '#334155', fontStyle: 'italic' }}>"{c.ultimo_mensaje}"</p>
                 </div>
-                <button 
-                  onClick={() => alert(`Abriendo chat privado de WhatsApp o interno con ${c.nombre_completo}...`)}
-                  style={{ background: '#00458e', color: 'white', padding: '8px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  Responder 💬
-                </button>
+                <button onClick={() => alert(`Abriendo chat con ${c.nombre_completo}...`)} style={{ background: '#00458e', color: 'white', padding: '8px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Responder 💬</button>
               </div>
             ))}
           </div>
@@ -208,15 +337,12 @@ export default function DashboardEmpresa() {
       )}
 
       {/* ========================================================= */}
-      {/* VISTA 4: AGREGAR NUEVA POSTULACIÓN / REQUERIMIENTO */}
+      {/* VISTA 6: AGREGAR NUEVA POSTULACIÓN (RENOVADA) */}
       {/* ========================================================= */}
       {vistaActual === 'crear-vacante' && (
         <div style={{ background: '#fff', padding: '30px', borderRadius: '8px', border: '1px solid #e2e8f0', maxWidth: '600px', margin: '0 auto' }}>
           <h3 style={{ color: '#00458e', marginTop: 0 }}>Crear Nuevo Requerimiento de Puesto</h3>
-          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
-            Completá los campos del puesto. Los candidatos que apliquen tendrán la posibilidad de cargar directamente su currículum desde la plataforma.
-          </p>
-
+          
           <form onSubmit={handleGuardarVacante}>
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Tipo de Puesto / Título de Vacante</label>
@@ -230,11 +356,50 @@ export default function DashboardEmpresa() {
               />
             </div>
 
+            {/* 🌟 NUEVOS CAMPOS: MODALIDAD Y JORNADA */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Entorno de Trabajo</label>
+                <select 
+                  value={nuevaVacante.modalidad}
+                  onChange={(e) => setNuevaVacante({...nuevaVacante, modalidad: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff' }}
+                >
+                  <option value="Presencial">Presencial 🏢</option>
+                  <option value="Remoto">Remoto 🏠</option>
+                  <option value="Híbrido">Híbrido 🔄</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Carga Horaria</label>
+                <select 
+                  value={nuevaVacante.jornada}
+                  onChange={(e) => setNuevaVacante({...nuevaVacante, jornada: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff' }}
+                >
+                  <option value="Full-time">Full-time ⏱️</option>
+                  <option value="Part-time">Part-time ⏳</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 🌟 NUEVO CAMPO: FECHA DE VENCIMIENTO */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Fecha Límite de Publicación (Vencimiento)</label>
+              <input 
+                type="date" 
+                value={nuevaVacante.fechaVencimiento}
+                onChange={(e) => setNuevaVacante({...nuevaVacante, fechaVencimiento: e.target.value})}
+                required
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontFamily: 'sans-serif' }}
+              />
+            </div>
+
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Descripción del Puesto</label>
               <textarea 
-                rows="4"
-                placeholder="Detallá las tareas, responsabilidades y el día a día de la posición..."
+                rows="3"
+                placeholder="Detallá las tareas y responsabilidades..."
                 value={nuevaVacante.descripcion}
                 onChange={(e) => setNuevaVacante({...nuevaVacante, descripcion: e.target.value})}
                 required
@@ -243,10 +408,10 @@ export default function DashboardEmpresa() {
             </div>
 
             <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Competencias Claves Requeridas</label>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Competencias Claves</label>
               <input 
                 type="text" 
-                placeholder="Ej: CRM, Negociación, Ventas B2B (Separadas por coma)" 
+                placeholder="Ej: CRM, Negociación, Ventas B2B" 
                 value={nuevaVacante.competencias}
                 onChange={(e) => setNuevaVacante({...nuevaVacante, competencias: e.target.value})}
                 required
@@ -255,7 +420,7 @@ export default function DashboardEmpresa() {
             </div>
 
             <div style={{ marginBottom: '25px' }}>
-              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>SalarioOfrecido (en ARS - Pesos Argentinos)</label>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Salario Ofrecido (ARS - Pesos Argentinos)</label>
               <input 
                 type="number" 
                 placeholder="Ej: 650000" 
@@ -267,19 +432,8 @@ export default function DashboardEmpresa() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button 
-                type="button" 
-                onClick={() => setVistaActual('reclutamiento')}
-                style={{ background: '#64748b', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit" 
-                style={{ background: '#10b981', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                Publicar Vacante 🚀
-              </button>
+              <button type="button" onClick={() => setVistaActual('reclutamiento')} style={{ background: '#64748b', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+              <button type="submit" style={{ background: '#10b981', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Publicar Vacante 🚀</button>
             </div>
           </form>
         </div>
