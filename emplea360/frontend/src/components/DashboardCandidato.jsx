@@ -411,4 +411,179 @@ export default function DashboardCandidato() {
             <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0 0' }}>Panel Candidato</p>
           </div>
 
-          <nav style={{ display: 'flex', flexDirection: 'column', gap
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button onClick={() => setActiveTab('perfil')} style={btnStyle(activeTab === 'perfil')}>📄 Carga y Optimización CV</button>
+            <button onClick={() => setActiveTab('formularios')} style={btnStyle(activeTab === 'formularios')}>✏️ Datos y Estructura CV</button>
+            <button onClick={() => setActiveTab('documentos')} style={btnStyle(activeTab === 'documentos')}>💼 Documentos Generados</button>
+            <button onClick={() => setActiveTab('calendario')} style={btnStyle(activeTab === 'calendario')}>📅 Entrevistas</button>
+            <button onClick={() => setActiveTab('analisis')} style={btnStyle(activeTab === 'analisis')}>📈 Postulaciones</button>
+            <button onClick={() => setActiveTab('academia')} style={btnStyle(activeTab === 'academia')}>🎓 Academia</button>
+            <button onClick={() => setActiveTab('chat')} style={btnStyle(activeTab === 'chat')}>💬 Sala de Chat</button>
+          </nav>
+        </div>
+        <div style={{ borderTop: '1px solid #334155', paddingTop: '15px' }}>
+          <button onClick={handleLogout} style={{ width: '100%', padding: '12px 15px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>🚪 Cerrar Sesión</button>
+        </div>
+      </div>
+
+      {/* 🖥️ CONTENIDO PRINCIPAL DINÁMICO */}
+      <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+        
+        {activeTab === 'perfil' && (
+          <div>
+            <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Optimización Inteligente</h2>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Foto de Perfil</h3>
+              <input type="file" accept="image/*" onChange={handleFotoChange} style={{ marginTop: '10px' }} />
+            </div>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Arrastrá o cargá tu Currículum Base</h3>
+              <input type="file" accept=".pdf,.doc,.docx" onChange={handleCvChange} style={{ margin: '20px 0', display: 'block' }} />
+              
+              {cvNombreArchivo && (
+                <p style={{ fontSize: '14px', color: '#00458e', fontWeight: 'bold' }}>📂 CV Guardado: {cvNombreArchivo}</p>
+              )}
+
+              {atsScore && (
+                <div style={{ marginTop: '20px', padding: '20px', background: '#f0fdf4', borderLeft: '4px solid #22c55e', borderRadius: '6px' }}>
+                  <h4 style={{ color: '#166534', margin: '0 0 10px 0' }}>📈 Puntuación del Robot ATS: {atsScore.score}%</h4>
+                  <ul style={{ margin: 0, paddingLeft: '20px', color: '#1e293b', fontSize: '14px' }}>
+                    {atsScore.consejos.map((c, i) => <li key={i} style={{ marginBottom: '5px' }}>{c}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'formularios' && (
+          <div>
+            <h2 style={{ color: '#0f172a', marginBottom: '20px' }}>Gestión de Secciones y Habilidades</h2>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Perfil Profesional Corto</h3>
+              <textarea value={perfilCandidato} onChange={(e) => setPerfilCandidato(e.target.value)} rows="3" style={{ width: '100%', padding: '10px', marginTop: '10px', borderRadius: '6px', border: '1px solid #ccc' }}></textarea>
+            </div>
+
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <h3>Habilidades Clave</h3>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <select value={nuevaHabilidad} onChange={(e) => setNuevaHabilidad(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                  <option value="">-- Seleccionar o sugerir habilidad --</option>
+                  {listaHabilidadesSugeridas.map((hab, i) => <option key={i} value={hab}>{hab}</option>)}
+                </select>
+                <button type="button" onClick={addHabilidadManual} style={{ background: '#00458e', color: '#fff', border: 'none', padding: '0 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Añadir</button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '15px' }}>
+                {habilidades.map((h, i) => <span key={i} style={{ background: '#e2e8f0', color: '#0f172a', padding: '5px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>{h}</span>)}
+              </div>
+            </div>
+
+            {/* Bloques de Estudios, Experiencias y Capacitaciones sin cambios de diseño pero vinculados al auto-guardado */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <h3>Historial de Estudios</h3>
+                <form onSubmit={addEstudioManual} style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input type="text" placeholder="Título" value={nuevoEstudio.titulo} onChange={(e) => setNuevoEstudio({...nuevoEstudio, titulo: e.target.value})} required style={{ padding: '8px' }} />
+                  <input type="text" placeholder="Institución" value={nuevoEstudio.institucion} onChange={(e) => setNuevoEstudio({...nuevoEstudio, institucion: e.target.value})} required style={{ padding: '8px' }} />
+                  <input type="text" placeholder="Año" value={nuevoEstudio.año} onChange={(e) => setNuevoEstudio({...nuevoEstudio, año: e.target.value})} required style={{ padding: '8px' }} />
+                  <button style={{ background: '#00458e', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px' }}>+ Agregar</button>
+                </form>
+                <ul>{estudios.map((e, i) => <li key={i}>{e.titulo} - {e.institucion} ({e.año})</li>)}</ul>
+              </div>
+
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <h3>Experiencia Laboral</h3>
+                <form onSubmit={addExperienciaManual} style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input type="text" placeholder="Puesto" value={nuevaExperiencia.puesto} onChange={(e) => setNuevaExperiencia({...nuevaExperiencia, puesto: e.target.value})} required style={{ padding: '8px' }} />
+                  <input type="text" placeholder="Empresa" value={nuevaExperiencia.empresa} onChange={(e) => setNuevaExperiencia({...nuevaExperiencia, empresa: e.target.value})} required style={{ padding: '8px' }} />
+                  <input type="text" placeholder="Periodo" value={nuevaExperiencia.periodo} onChange={(e) => setNuevaExperiencia({...nuevaExperiencia, periodo: e.target.value})} required style={{ padding: '8px' }} />
+                  <button style={{ background: '#00458e', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px' }}>+ Agregar</button>
+                </form>
+                <ul>{experiencias.map((exp, i) => <li key={i}>{exp.puesto} en {exp.empresa} ({exp.periodo})</li>)}</ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'documentos' && (
+          <div>
+            <div style={{ display: 'flex', justifyBetween: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2>Documentación Profesional Generada</h2>
+              <button onClick={descargarPdfAts} style={{ background: '#22c55e', color: '#fff', padding: '12px 24px', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>🖨️ Descargar CV con Filtros ATS (PDF)</button>
+            </div>
+            <textarea value={cartaPresentacion} onChange={(e) => setCartaPresentacion(e.target.value)} rows="10" style={{ width: '100%', padding: '12px', background: '#fafafa' }}></textarea>
+          </div>
+        )}
+
+        {/* 🌟 VISTA ACTUALIZADA: POSTULACIONES Y FILTROS DESDE EL BACKEND */}
+        {activeTab === 'analisis' && (
+          <div>
+            <h2 style={{ color: '#0f172a', marginBottom: '5px' }}>Buscador de Vacantes en Tiempo Real</h2>
+            <p style={{ color: '#64748b', marginBottom: '25px' }}>Visualizá las propuestas vigentes de las empresas conectadas a la red de Emplea 360.</p>
+            
+            {/* BARRA DE FILTROS */}
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '25px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px' }}>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Título del Puesto:</label>
+                <input type="text" placeholder="Ej: Frontend..." value={filtroPuesto} onChange={(e) => setFiltroPuesto(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Disponibilidad:</label>
+                <select value={filtroDisponibilidad} onChange={(e) => setFiltroDisponibilidad(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="">Todas</option>
+                  <option value="Full-Time">Full-Time</option>
+                  <option value="Part-Time">Part-Time</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Tipo de Trabajo:</label>
+                <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="">Todos</option>
+                  <option value="Remoto">Remoto</option>
+                  <option value="Presencial">Presencial</option>
+                  <option value="Híbrido">Híbrido</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Zona:</label>
+                <input type="text" placeholder="Ej: San Juan..." value={filtroZona} onChange={(e) => setFiltroZona(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+            </div>
+
+            {/* LISTADO */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {loadingVacantes ? (
+                <p style={{ textAlign: 'center', color: '#00458e', fontWeight: 'bold' }}>🔄 Conectando con empresas de Emplea 360...</p>
+              ) : vacantesFiltradas.length === 0 ? (
+                <div style={{ background: '#fff', padding: '30px', textAlign: 'center', borderRadius: '12px', color: '#64748b' }}>
+                  No hay postulaciones subidas por empresas que coincidan con la búsqueda actual.
+                </div>
+              ) : vacantesFiltradas.map((vac) => (
+                <div key={vac.id} style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: vac.postulada ? '5px solid #22c55e' : '5px solid #00458e' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 5px 0', color: '#0f172a' }}>{vac.puesto}</h3>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#00458e' }}>🏢 {vac.empresa}</h4>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '6px', fontSize: '12px' }}>⏱️ {vac.disponibilidad}</span>
+                      <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '4px 10px', borderRadius: '6px', fontSize: '12px' }}>💻 {vac.tipo}</span>
+                      <span style={{ background: '#f0fdf4', color: '#166534', padding: '4px 10px', borderRadius: '6px', fontSize: '12px' }}>📍 {vac.zona}</span>
+                      <span style={{ background: '#fff7ed', color: '#c2410c', padding: '4px 10px', borderRadius: '6px', fontSize: '12px' }}>💵 {vac.salario}</span>
+                    </div>
+                  </div>
+                  <div>
+                    {vac.postulada ? (
+                      <button disabled style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 'bold', cursor: 'not-allowed' }}>✓ Postulado</button>
+                    ) : (
+                      <button onClick={() => handlePostularse(vac.id, vac.puesto, vac.empresa)} style={{ background: '#00458e', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Postularme</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
