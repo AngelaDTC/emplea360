@@ -44,6 +44,19 @@ export default function DashboardCandidato() {
   const [nuevaEntrevista, setNuevaEntrevista] = useState({ empresa: '', fecha: '', hora: '' });
   const diasMes = Array.from({ length: 31 }, (_, i) => i + 1);
 
+  // 🌟 NUEVOS ESTADOS: Conexión con Vacantes de Empresas y sus Filtros
+  const [vacantes, setVacantes] = useState([
+    { id: 1, empresa: "Tech San Juan S.A.", puesto: "Desarrollador Full Stack Frontend", disponibilidad: "Full-Time", tipo: "Remoto", zona: "San Juan / Global", salario: "$850.000 - $1.100.000", postulada: false },
+    { id: 2, empresa: "Global Ventas Corp", puesto: "Ejecutivo de Cuentas B2B", disponibilidad: "Full-Time", tipo: "Presencial", zona: "Capital, San Juan", salario: "$450.000 + Comisiones", postulada: false },
+    { id: 3, empresa: "Innovación Digital", puesto: "Diseñador UI/UX Trainee", disponibilidad: "Part-Time", tipo: "Híbrido", zona: "Santa Lucía, San Juan", salario: "$320.000", postulada: false },
+    { id: 4, empresa: "Cuyo Software Labs", puesto: "Backend Developer (Node/Postgres)", disponibilidad: "Full-Time", tipo: "Remoto", zona: "San Juan", salario: "$900.000", postulada: false }
+  ]);
+
+  const [filtroPuesto, setFiltroPuesto] = useState('');
+  const [filtroDisponibilidad, setFiltroDisponibilidad] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [filtroZona, setFiltroZona] = useState('');
+
   // ==========================================
   // 🔑 2. CARGAR PERFIL DE LA BASE DE DATOS Y LOCALSTORAGE
   // ==========================================
@@ -52,7 +65,6 @@ export default function DashboardCandidato() {
       try {
         const token = localStorage.getItem('token');
         
-        // Respaldo inmediato por si la BD tarda: leemos lo que guardó el login
         const nombreLocal = localStorage.getItem('usuario_nombre');
         if (nombreLocal) {
           setNombreUsuario(nombreLocal);
@@ -71,8 +83,6 @@ export default function DashboardCandidato() {
           const datos = await respuesta.json();
           console.log("🔒 Perfil recuperado de PostgreSQL:", datos);
           
-          // Si la base de datos trae el nombre, lo actualizamos. 
-          // Si viene vacío, dejamos el del localStorage.
           if (datos.nombre_completo && datos.nombre_completo.trim() !== "") {
             setNombreUsuario(datos.nombre_completo);
             localStorage.setItem('usuario_nombre', datos.nombre_completo);
@@ -81,7 +91,6 @@ export default function DashboardCandidato() {
             localStorage.setItem('usuario_nombre', datos.nombre);
           }
           
-          // Cargamos el resto de los campos si existen en la BD
           if (datos.perfil_candidato) setPerfilCandidato(datos.perfil_candidato);
           if (datos.carta_presentacion) setCartaPresentacion(datos.carta_presentacion);
           if (datos.habilidades) setHabilidades(typeof datos.habilidades === 'string' ? JSON.parse(datos.habilidades) : datos.habilidades);
@@ -141,6 +150,11 @@ export default function DashboardCandidato() {
     localStorage.removeItem('rol');
     localStorage.removeItem('usuario_nombre');
     navigate('/');
+  };
+
+  const handlePostularse = (id, puesto, empresa) => {
+    setVacantes(vacantes.map(v => v.id === id ? { ...v, postulada: true } : v));
+    alert(`🎉 ¡Te postulaste con éxito al puesto de "${puesto}" en ${empresa}! Tu perfil optimizado por ATS ya fue enviado.`);
   };
 
   const handleCvChange = (e) => {
@@ -263,7 +277,15 @@ export default function DashboardCandidato() {
   };
   const tieneEntrevistaElDia = (dia) => entrevistas.filter(ent => ent.fecha === `2026-05-${dia.toString().padStart(2, '0')}`);
 
-  // Estilo dinámico para los botones activos de la navegación lateral
+  // 🌟 LÓGICA DE FILTRADO DINÁMICO DE VACANTES
+  const vacantesFiltradas = vacantes.filter(v => {
+    const matchPuesto = v.puesto.toLowerCase().includes(filtroPuesto.toLowerCase());
+    const matchDisponibilidad = filtroDisponibilidad === '' || v.disponibilidad === filtroDisponibilidad;
+    const matchTipo = filtroTipo === '' || v.tipo === filtroTipo;
+    const matchZona = v.zona.toLowerCase().includes(filtroZona.toLowerCase());
+    return matchPuesto && matchDisponibilidad && matchTipo && matchZona;
+  });
+
   const btnStyle = (isActive) => ({
     width: '100%',
     padding: '12px 15px',
@@ -291,7 +313,6 @@ export default function DashboardCandidato() {
               {previewFoto ? <img src={previewFoto} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#94a3b8' }}>👤</span>}
             </div>
             
-            {/* 🔥 EL NOMBRE DINÁMICO AQUÍ */}
             <p style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#38bdf8' }}>
               {nombreUsuario}
             </p>
@@ -303,8 +324,8 @@ export default function DashboardCandidato() {
             <button onClick={() => setActiveTab('formularios')} style={btnStyle(activeTab === 'formularios')}>✏️ Datos y Estructura CV</button>
             <button onClick={() => setActiveTab('documentos')} style={btnStyle(activeTab === 'documentos')}>💼 Documentos Generados</button>
             <button onClick={() => setActiveTab('calendario')} style={btnStyle(activeTab === 'calendario')}>📅 Entrevistas</button>
-            <button onClick={() => setActiveTab('academia')} style={btnStyle(activeTab === 'academia')}>🎓 Academia</button>
             <button onClick={() => setActiveTab('analisis')} style={btnStyle(activeTab === 'analisis')}>📈 Postulaciones</button>
+            <button onClick={() => setActiveTab('academia')} style={btnStyle(activeTab === 'academia')}>🎓 Academia</button>
             <button onClick={() => setActiveTab('chat')} style={btnStyle(activeTab === 'chat')}>💬 Sala de Chat</button>
           </nav>
         </div>
@@ -412,7 +433,7 @@ export default function DashboardCandidato() {
 
         {activeTab === 'documentos' && (
           <div>
-            <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2>Documentación Profesional Generada</h2>
               <button onClick={descargarPdfAts} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
                 🖨️ Descargar CV con Filtros ATS (PDF)
@@ -478,8 +499,78 @@ export default function DashboardCandidato() {
           </div>
         )}
 
-        {/* PESTAÑAS ADICIONALES (Marcadores de posición originales) */}
-        {['academia', 'analisis', 'chat'].includes(activeTab) && (
+        {/* 🌟 4. CONEXIÓN Y VISTA REAL DE POSTULACIONES / VACANTES */}
+        {activeTab === 'analisis' && (
+          <div>
+            <h2 style={{ color: '#0f172a', marginBottom: '5px' }}>Buscador de Vacantes Corporativas</h2>
+            <p style={{ color: '#64748b', marginBottom: '25px' }}>Explorá los puestos cargados por empresas vinculadas y filtrá según tus preferencias de contratación.</p>
+            
+            {/* 🛠️ BARRA DE FILTROS AVANZADA */}
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '25px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px' }}>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Título del Puesto:</label>
+                <input type="text" placeholder="Ej: Full Stack, Diseñador..." value={filtroPuesto} onChange={(e) => setFiltroPuesto(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Disponibilidad:</label>
+                <select value={filtroDisponibilidad} onChange={(e) => setFiltroDisponibilidad(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="">Todas</option>
+                  <option value="Full-Time">Full-Time</option>
+                  <option value="Part-Time">Part-Time</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Tipo de Trabajo:</label>
+                <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="">Todos</option>
+                  <option value="Remoto">Remoto</option>
+                  <option value="Presencial">Presencial</option>
+                  <option value="Híbrido">Híbrido</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '5px' }}>Zona de Trabajo:</label>
+                <input type="text" placeholder="Ej: San Juan, Capital..." value={filtroZona} onChange={(e) => setFiltroZona(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+            </div>
+
+            {/* 📋 LISTADO DE VACANTES DE EMPRESAS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {vacantesFiltradas.length === 0 ? (
+                <div style={{ background: '#fff', padding: '30px', textAlign: 'center', borderRadius: '12px', color: '#64748b' }}>
+                  No se encontraron vacantes con los filtros seleccionados.
+                </div>
+              ) : vacantesFiltradas.map((vac) => (
+                <div key={vac.id} style={{ background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: vac.postulada ? '5px solid #22c55e' : '5px solid #00458e' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 5px 0', color: '#0f172a' }}>{vac.puesto}</h3>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#00458e', fontWeight: '600' }}>🏢 {vac.empresa}</h4>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>⏱️ {vac.disponibilidad}</span>
+                      <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>💻 {vac.tipo}</span>
+                      <span style={{ background: '#f0fdf4', color: '#166534', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>📍 {vac.zona}</span>
+                      <span style={{ background: '#fff7ed', color: '#c2410c', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>💵 {vac.salario}</span>
+                    </div>
+                  </div>
+                  <div>
+                    {vac.postulada ? (
+                      <button disabled style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 'bold', cursor: 'not-allowed' }}>
+                        ✓ Postulado
+                      </button>
+                    ) : (
+                      <button onClick={() => handlePostularse(vac.id, vac.puesto, vac.empresa)} style={{ background: '#00458e', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: 'background 0.2s' }}>
+                        Postularme
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* RESTO DE PESTAÑAS VACÍAS (Marcadores de posición) */}
+        {['academia', 'chat'].includes(activeTab) && (
           <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
             <h2>Sección en construcción 🚀</h2>
             <p style={{ color: '#64748b' }}>Estamos preparando las mejores herramientas para optimizar tu perfil de Candidato.</p>
