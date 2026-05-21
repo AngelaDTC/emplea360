@@ -4,8 +4,15 @@ import React, { useState, useEffect } from 'react';
 export default function DashboardEmpresa() {
   const [candidatos, setCandidatos] = useState([]);
   const [filtroHabilidad, setFiltroHabilidad] = useState('');
+  const [nombreEmpresa, setNombreEmpresa] = useState('Empresa'); // 🌟 Estado para el nombre dinámico
 
   useEffect(() => {
+    // 🌟 Recuperar el nombre guardado por la AuthPage al iniciar sesión
+    const guardado = localStorage.getItem('usuario_nombre');
+    if (guardado) {
+      setNombreEmpresa(guardado);
+    }
+
     // Simulación de carga de datos ordenados por compatibilidad (Filtro ATS del backend)
     const mockCandidatos = [
       { id: 1, nombre_completo: "Carlos Gómez", habilidades: ["Ventas B2B", "CRM", "Negociación"], experiencia_anios: 5, porcentaje_compatibilidad: 95, estado: "pendiente" },
@@ -21,13 +28,21 @@ export default function DashboardEmpresa() {
     setCandidatos(candidatos.filter(c => c.id !== id));
   };
 
+  // 🌟 Acción para el botón Descartar funcional
+  const handleDescartar = (id, nombre) => {
+    if (confirm(`¿Estás seguro de que deseas descartar a ${nombre}?`)) {
+      setCandidatos(candidatos.filter(c => c.id !== id));
+    }
+  };
+
   const candidatosFiltrados = candidatos.filter(c => 
     c.habilidades.some(h => h.toLowerCase().includes(filtroHabilidad.toLowerCase()))
   );
 
   return (
     <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2>Panel de Reclutamiento - Empresa</h2>
+      {/* 🌟 Título personalizado con el nombre de la Empresa */}
+      <h2>Panel de Reclutamiento - {nombreEmpresa}</h2>
       <hr />
 
       {/* Métricas e Indicadores Rápidos */}
@@ -66,8 +81,8 @@ export default function DashboardEmpresa() {
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontWeight: 'bold', color: '#10b981', fontSize: '1.2rem', marginBottom: '10px' }}>{c.porcentaje_compatibilidad}% Match</div>
-              <button className="btn-primary" style={{ background: '#10b981', color: 'white', marginRight: '10px' }} onClick={() => handleContratar(c.id, c.nombre_completo)}>Contratar</button>
-              <button className="btn-primary" style={{ background: '#ef4444', color: 'white' }}>Descartar</button>
+              <button className="btn-primary" style={{ background: '#10b981', color: 'white', marginRight: '10px', padding: '8px 15px', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handleContratar(c.id, c.nombre_completo)}>Contratar</button>
+              <button className="btn-primary" style={{ background: '#ef4444', color: 'white', padding: '8px 15px', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handleDescartar(c.id, c.nombre_completo)}>Descartar</button>
             </div>
           </div>
         ))}
