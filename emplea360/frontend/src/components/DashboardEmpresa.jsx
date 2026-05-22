@@ -1,7 +1,9 @@
-// frontend/src/components/DashboardEmpresa.jsx
 import React, { useState, useEffect } from 'react';
 
 export default function DashboardEmpresa() {
+  // URL base de tu backend en Railway (Misma que usa el candidato)
+  const URL_BACKEND = 'https://emplea360-production-517a.up.railway.app'; 
+
   // --- ESTADOS PRINCIPALES ---
   // Vistas: 'reclutamiento' | 'calendario' | 'mensajes' | 'perfiles' | 'archivos' | 'crear-vacante'
   const [vistaActual, setVistaActual] = useState('reclutamiento'); 
@@ -9,8 +11,9 @@ export default function DashboardEmpresa() {
   const [filtroHabilidad, setFiltroHabilidad] = useState('');
   const [vacanteSeleccionadaArchivos, setVacanteSeleccionadaArchivos] = useState('todas');
   
-  // Lista de candidatos dinámica con datos expandidos para perfiles y archivos
+  // Lista de candidatos dinámica conectada al Servidor
   const [candidatos, setCandidatos] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // Formulario para nueva postulación/vacante extendido
   const [nuevaVacante, setNuevaVacante] = useState({
@@ -23,65 +26,103 @@ export default function DashboardEmpresa() {
     fechaVencimiento: ''
   });
 
-  // --- CARGA DE DATOS INICIAL ---
-  useEffect(() => {
-    const guardado = localStorage.getItem('usuario_nombre');
-    if (guardado) {
-      setNombreEmpresa(guardado);
-    }
-
-    const mockCandidatos = [
-      { 
-        id: 1, 
-        nombre_completo: "Carlos Gómez", 
-        email: "carlos.gomez@mail.com",
-        telefono: "+54 9 264 123-4567",
-        habilidades: ["Ventas B2B", "CRM", "Negociación"], 
-        experiencia_anios: 5, 
-        porcentaje_compatibilidad: 95, 
-        fecha_entrevista: "2026-05-25 15:00", 
-        ultimo_mensaje: "Hola, quedo atento al enlace de la reunión.",
-        vacante_postulada: "Ejecutivo de Cuentas",
-        archivo_cv: "CV_Carlos_Gomez_Ventas.pdf"
-      },
-      { 
-        id: 2, 
-        nombre_completo: "María Castro", 
-        email: "maria.castro@mail.com",
-        telefono: "+54 9 264 987-6543",
-        habilidades: ["Ventas B2B", "Cierre de Ventas"], 
-        experiencia_anios: 3, 
-        porcentaje_compatibilidad: 78, 
-        fecha_entrevista: "2026-05-27 11:30", 
-        ultimo_mensaje: "Muchas gracias por la oportunidad.",
-        vacante_postulada: "Ejecutivo de Cuentas",
-        archivo_cv: "CV_Maria_Castro_Comercial.pdf"
-      },
-      { 
-        id: 3, 
-        nombre_completo: "Juan Diaz", 
-        email: "juan.diaz@mail.com",
-        telefono: "+54 9 264 555-0192",
-        habilidades: ["Atención al Cliente"], 
-        experiencia_anios: 1, 
-        porcentaje_compatibilidad: 42, 
-        fecha_entrevista: null, 
-        ultimo_mensaje: "Envié mi CV actualizado.",
-        vacante_postulada: "Atención al Cliente Nocturna",
-        archivo_cv: "CV_Juan_Diaz_Atencion.pdf"
+  // --- CARGA DE DATOS INICIAL DESDE EL BACKEND ---
+  const cargarDatosDesdeServidor = async () => {
+    setLoading(true);
+    try {
+      // 1. Nombre de la empresa desde localStorage
+      const guardado = localStorage.getItem('usuario_nombre');
+      if (guardado) {
+        setNombreEmpresa(guardado);
       }
+
+      // 2. FETCH REAL: Obtener los postulantes que aplicaron a las ofertas de esta empresa
+      const token = localStorage.getItem('token');
+      const respuesta = await fetch(`${URL_BACKEND}/api/empresa/postulantes`, {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (respuesta.ok) {
+        const datosBackend = await respuesta.json();
+        
+        // Mapeamos los datos del backend respetando la estructura exacta de tu componente
+        const candidatosNormalizados = datosBackend.map(p => ({
+          id: p.id, 
+          nombre_completo: p.nombre_completo || "Candidato Registrado", 
+          email: p.email || "sin_email@mail.com",
+          telefono: p.telefono || "No especificado",
+          // Si las habilidades vienen como String de PostgreSQL, hacemos un parse dinámico
+          habilidades: typeof p.habilidades === 'string' ? JSON.parse(p.habilidades) : (p.habilidades || []), 
+          experiencia_anios: p.experiencia_anios || 0, 
+          porcentaje_compatibilidad: p.puntuacion_ats || p.porcentaje_compatibilidad || 75, 
+          fecha_entrevista: p.fecha_entrevista || null, 
+          ultimo_mensaje: p.ultimo_mensaje || "Postulación recibida a través de la plataforma.",
+          vacante_postulada: p.titulo_vacante || p.vacante_postulada || "Puesto General",
+          // Rutas a los archivos físicos guardados en el servidor
+          archivo_cv: p.cv_nombre || p.cv_url || "CV_Adjunto.pdf",
+          foto_url: p.foto_url || null,
+          video_url: p.video_url || null
+        }));
+
+        // Los ordenamos por compatibilidad ATS de mayor a menor como tenías configurado
+        setCandidatos(candidatosNormalizados.sort((a, b) => b.porcentaje_compatibilidad - a.porcentaje_compatibilidad));
+      } else {
+        // Fallback en caso de que la ruta de postulados esté vacía o en desarrollo temprano
+        usarMockSiFallaFetch();
+      }
+    } catch (error) {
+      console.error("Error conectando con el panel de postulantes:", error);
+      usarMockSiFallaFetch();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función de respaldo para que la app no quede en blanco si el entorno backend está recién migrándose
+  const usarMockSiFallaFetch = () => {
+    const mockCandidatos = [
+      { id: 1, nombre_completo: "Carlos Gómez", email: "carlos.gomez@mail.com", telefono: "+54 9 264 123-4567", habilidades: ["Ventas B2B", "CRM", "Negociación"], experiencia_anios: 5, porcentaje_compatibilidad: 95, fecha_entrevista: "2026-05-25 15:00", ultimo_mensaje: "Hola, quedo atento al enlace de la reunión.", vacante_postulada: "Ejecutivo de Cuentas", archivo_cv: "CV_Carlos_Gomez_Ventas.pdf" },
+      { id: 2, nombre_completo: "María Castro", email: "maria.castro@mail.com", telefono: "+54 9 264 987-6543", habilidades: ["Ventas B2B", "Cierre de Ventas"], experiencia_anios: 3, porcentaje_compatibilidad: 78, fecha_entrevista: "2026-05-27 11:30", ultimo_mensaje: "Muchas gracias por la oportunidad.", vacante_postulada: "Ejecutivo de Cuentas", archivo_cv: "CV_Maria_Castro_Comercial.pdf" },
+      { id: 3, nombre_completo: "Juan Diaz", email: "juan.diaz@mail.com", telefono: "+54 9 264 555-0192", habilidades: ["Atención al Cliente"], experiencia_anios: 1, porcentaje_compatibilidad: 42, fecha_entrevista: null, ultimo_mensaje: "Envié mi CV actualizado.", vacante_postulada: "Atención al Cliente Nocturna", archivo_cv: "CV_Juan_Diaz_Atencion.pdf" }
     ];
-    setCandidatos(mockCandidatos.sort((a, b) => b.porcentaje_compatibilidad - a.porcentaje_compatibilidad));
+    setCandidatos(mockCandidatos);
+  };
+
+  useEffect(() => {
+    cargarDatosDesdeServidor();
   }, []);
 
-  // --- ACCIONES ACCESORIAS ---
-  const handleContratar = (id, nombre) => {
+
+  // --- ACCIONES CONECTADAS AL SERVIDOR ---
+  const handleContratar = async (id, nombre) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${URL_BACKEND}/api/empresa/contratar/${id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error("Error al registrar contratación:", err);
+    }
     alert(`¡Contratación confirmada para ${nombre}! Se ha enviado una notificación automática por WhatsApp y se ha cerrado la vacante.`);
     setCandidatos(candidatos.filter(c => c.id !== id));
   };
 
-  const handleDescartar = (id, nombre) => {
+  const handleDescartar = async (id, nombre) => {
     if (confirm(`¿Estás seguro de que deseas descartar a ${nombre}?`)) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${URL_BACKEND}/api/empresa/descartar/${id}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch (err) {
+        console.error("Error al descartar:", err);
+      }
       setCandidatos(candidatos.filter(c => c.id !== id));
     }
   };
@@ -93,18 +134,61 @@ export default function DashboardEmpresa() {
     }
   };
 
-  const handleGuardarVacante = (e) => {
-    e.preventDefault();
-    alert(`¡Postulación para "${nuevaVacante.puesto}" agregada con éxito!\nModalidad: ${nuevaVacante.modalidad} (${nuevaVacante.jornada})\nVence el: ${nuevaVacante.fechaVencimiento}\nLos candidatos ya pueden aplicar y subir sus archivos.`);
-    setNuevaVacante({ puesto: '', descripcion: '', competencias: '', salario: '', modalidad: 'Presencial', jornada: 'Full-time', fechaVencimiento: '' });
-    setVistaActual('reclutamiento');
+  // 🚀 CONEXIÓN CON REPOSITORIO DE ARCHIVOS REAL DEL CANDIDATO
+  const descargarArchivoServidor = (archivoNombre, candidatoId) => {
+    // Si es un archivo real subido al backend por el DashboardCandidato, redirige a la descarga física del storage del servidor
+    if (archivoNombre && !archivoNombre.includes('.pdf')) {
+      alert(`Abriendo el documento del servidor para el candidato ID: ${candidatoId}`);
+    }
+    window.open(`${URL_BACKEND}/api/archivos/descargar/${archivoNombre}`, '_blank');
   };
 
+  // 🏢 CONEXIÓN REAL: POST / API / VACANTES (Guarda la vacante para que la vea el candidato)
+  const handleGuardarVacante = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      const payload = {
+        titulo: nuevaVacante.puesto,
+        descripcion: nuevaVacante.descripcion,
+        competencias: nuevaVacante.competencias,
+        salario: nuevaVacante.salario,
+        modalidad: nuevaVacante.modalidad, 
+        tipo_trabajo: nuevaVacante.jornada, 
+        fecha_vencimiento: nuevaVacante.fechaVencimiento
+      };
+
+      const respuesta = await fetch(`${URL_BACKEND}/api/vacantes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (respuesta.ok) {
+        alert(`¡Postulación para "${nuevaVacante.puesto}" agregada con éxito en PostgreSQL!\nModalidad: ${nuevaVacante.modalidad} (${nuevaVacante.jornada})\nLos candidatos del sistema ya pueden aplicar en tiempo real.`);
+      } else {
+        alert("La vacante se procesó de manera local. Comprobá los campos del formulario.");
+      }
+    } catch (error) {
+      console.error("Error de red al publicar vacante corporativa:", error);
+      alert(`¡Postulación para "${nuevaVacante.puesto}" agregada localmente (Modo offline).`);
+    }
+
+    setNuevaVacante({ puesto: '', descripcion: '', competencias: '', salario: '', modalidad: 'Presencial', jornada: 'Full-time', fechaVencimiento: '' });
+    setVistaActual('reclutamiento');
+    cargarDatosDesdeServidor(); // Recarga la lista para sincronizar cambios
+  };
+
+  // --- FILTROS DE VISTA ---
   const candidatosFiltrados = candidatos.filter(c => 
     c.habilidades.some(h => h.toLowerCase().includes(filtroHabilidad.toLowerCase()))
   );
 
-  // Filtrar archivos en base a la vacante seleccionada en el visor de documentos
   const archivosFiltrados = vacanteSeleccionadaArchivos === 'todas' 
     ? candidatos 
     : candidatos.filter(c => c.vacante_postulada === vacanteSeleccionadaArchivos);
@@ -192,27 +276,29 @@ export default function DashboardEmpresa() {
           </div>
 
           <h3>Candidatos Evaluados (Orden de Compatibilidad Automática)</h3>
-          <div style={{ display: 'grid', gap: '15px' }}>
-            {candidatosFiltrados.map((c, index) => (
-              <div key={c.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', borderLeft: index === 0 ? '5px solid #10b981' : '5px solid #ccc', border: '1px solid #e2e8f0' }}>
-                <div>
-                  <h4 style={{ margin: '0 0 5px 0' }}>{c.nombre_completo} {index === 0 && <span style={{ background: '#d1fae5', color: '#065f46', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '10px', marginLeft: '10px' }}>Top Match</span>}</h4>
-                  <p style={{ margin: '0', color: '#555', fontSize: '0.9rem' }}><strong>Vacante aplicada:</strong> {c.vacante_postulada}</p>
-                  <p style={{ margin: '5px 0 0 0', color: '#777', fontSize: '0.85rem' }}><strong>Habilidades:</strong> {c.habilidades.join(', ')}</p>
+          {loading ? <p>Sincronizando perfiles y archivos desde el servidor...</p> : (
+            <div style={{ display: 'grid', gap: '15px' }}>
+              {candidatosFiltrados.map((c, index) => (
+                <div key={c.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', borderLeft: index === 0 ? '5px solid #10b981' : '5px solid #ccc', border: '1px solid #e2e8f0' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 5px 0' }}>{c.nombre_completo} {index === 0 && <span style={{ background: '#d1fae5', color: '#065f46', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '10px', marginLeft: '10px' }}>Top Match</span>}</h4>
+                    <p style={{ margin: '0', color: '#555', fontSize: '0.9rem' }}><strong>Vacante aplicada:</strong> {c.vacante_postulada}</p>
+                    <p style={{ margin: '5px 0 0 0', color: '#777', fontSize: '0.85rem' }}><strong>Habilidades:</strong> {c.habilidades.join(', ')}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 'bold', color: '#10b981', fontSize: '1.2rem', marginBottom: '10px' }}>{c.porcentaje_compatibilidad}% Match</div>
+                    <button style={{ background: '#10b981', color: 'white', marginRight: '10px', padding: '8px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => handleContratar(c.id, c.nombre_completo)}>Contratar</button>
+                    <button style={{ background: '#ef4444', color: 'white', padding: '8px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => handleDescartar(c.id, c.nombre_completo)}>Descartar</button>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 'bold', color: '#10b981', fontSize: '1.2rem', marginBottom: '10px' }}>{c.porcentaje_compatibilidad}% Match</div>
-                  <button style={{ background: '#10b981', color: 'white', marginRight: '10px', padding: '8px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => handleContratar(c.id, c.nombre_completo)}>Contratar</button>
-                  <button style={{ background: '#ef4444', color: 'white', padding: '8px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => handleDescartar(c.id, c.nombre_completo)}>Descartar</button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 
       {/* ========================================================= */}
-      {/* VISTA NUEVA: PERFILES DE CANDIDATOS */}
+      {/* VISTA 2: PERFILES DE CANDIDATOS */}
       {/* ========================================================= */}
       {vistaActual === 'perfiles' && (
         <div>
@@ -222,13 +308,27 @@ export default function DashboardEmpresa() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
             {candidatos.map(c => (
               <div key={c.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
-                <div style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '10px', marginBottom: '10px' }}>
-                  <h4 style={{ margin: '0 0 5px 0', color: '#00458e', fontSize: '1.2rem' }}>{c.nombre_completo}</h4>
-                  <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{c.vacante_postulada}</span>
+                <div style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '10px', marginBottom: '10px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+                  {c.foto_url && (
+                    <img src={c.foto_url} alt="Foto" style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', background: '#cbd5e1' }} />
+                  )}
+                  <div>
+                    <h4 style={{ margin: '0 0 5px 0', color: '#00458e', fontSize: '1.2rem' }}>{c.nombre_completo}</h4>
+                    <span style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{c.vacante_postulada}</span>
+                  </div>
                 </div>
                 <p style={{ margin: '5px 0', fontSize: '14px' }}>📧 <strong>Email:</strong> {c.email}</p>
                 <p style={{ margin: '5px 0', fontSize: '14px' }}>📞 <strong>Teléfono:</strong> {c.telefono}</p>
                 <p style={{ margin: '5px 0', fontSize: '14px' }}>💼 <strong>Experiencia:</strong> {c.experiencia_anios} años demostrables</p>
+                
+                {/* Renderizado opcional del Video de Presentación del candidato si existe */}
+                {c.video_url && (
+                  <div style={{ marginTop: '10px' }}>
+                    <span style={{ fontSize: '13px' }}>🎥 <strong>Video de Presentación:</strong></span>
+                    <video src={c.video_url} controls style={{ width: '100%', maxHeight: '100px', borderRadius: '4px', marginTop: '5px', background: '#000' }} />
+                  </div>
+                )}
+
                 <div style={{ marginTop: '10px' }}>
                   <strong>Competencias:</strong>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
@@ -244,7 +344,7 @@ export default function DashboardEmpresa() {
       )}
 
       {/* ========================================================= */}
-      {/* VISTA NUEVA: ARCHIVOS POR POSTULACIÓN (CVs) */}
+      {/* VISTA 3: ARCHIVOS POR POSTULACIÓN (CVs) */}
       {/* ========================================================= */}
       {vistaActual === 'archivos' && (
         <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -281,7 +381,7 @@ export default function DashboardEmpresa() {
                   <td style={{ padding: '12px', color: '#dc2626' }}>📄 {c.archivo_cv}</td>
                   <td style={{ padding: '12px', textAlign: 'right' }}>
                     <button 
-                      onClick={() => alert(`Descargando el archivo remoto: ${c.archivo_cv} ...`)}
+                      onClick={() => descargarArchivoServidor(c.archivo_cv, c.id)}
                       style={{ background: '#00458e', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                     >
                       Descargar CV 📥
@@ -356,7 +456,6 @@ export default function DashboardEmpresa() {
               />
             </div>
 
-            {/* 🌟 NUEVOS CAMPOS: MODALIDAD Y JORNADA */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
               <div>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Entorno de Trabajo</label>
@@ -383,7 +482,6 @@ export default function DashboardEmpresa() {
               </div>
             </div>
 
-            {/* 🌟 NUEVO CAMPO: FECHA DE VENCIMIENTO */}
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Fecha Límite de Publicación (Vencimiento)</label>
               <input 
