@@ -11,9 +11,7 @@ export default function DashboardEmpresa() {
   const [nombreEmpresa, setNombreEmpresa] = useState('Empresa');
   const [filtroHabilidad, setFiltroHabilidad] = useState('');
   const [vacanteSeleccionadaArchivos, setVacanteSeleccionadaArchivos] = useState('todas');
-  <button onClick={() => setVistaActual('academia_global')} ... >
-  🎓 Academia Pro (Pagos/Gratis)
-</button>
+ 
   
   // Lista de candidatos dinámica conectada al Servidor
   const [candidatos, setCandidatos] = useState([]);
