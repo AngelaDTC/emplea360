@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import MuroOportunidades from './MuroOportunidades'; // Asegúrate de que la ruta sea correcta
 
 export default function DashboardCandidato() {
   const navigate = useNavigate();
@@ -378,8 +379,7 @@ export default function DashboardCandidato() {
               <button onClick={() => setActiveTab('formularios')} style={{ width: '100%', padding: '12px 15px', background: activeTab === 'formularios' ? '#38bdf8' : 'transparent', color: activeTab === 'perfil' ? '#0f172a' : '#cbd5e1', border: 'none', borderRadius: '6px', textAlign: 'left', fontWeight: 'bold', cursor: 'pointer' }}>✏️ Datos y Estructura CV</button>
               <button onClick={() => setActiveTab('documentos')} style={{ width: '100%', padding: '12px 15px', background: activeTab === 'documentos' ? '#38bdf8' : 'transparent', color: activeTab === 'documentos' ? '#0f172a' : '#cbd5e1', border: 'none', borderRadius: '6px', textAlign: 'left', fontWeight: 'bold', cursor: 'pointer' }}>📁 Documentos Generados</button>
               <button onClick={() => setActiveTab('calendario')} style={{ width: '100%', padding: '12px 15px', background: activeTab === 'calendario' ? '#38bdf8' : 'transparent', color: activeTab === 'calendario' ? '#0f172a' : '#cbd5e1', border: 'none', borderRadius: '6px', textAlign: 'left', fontWeight: 'bold', cursor: 'pointer' }}>📅 Entrevistas</button>
-              <button onClick={() => setActiveTab('analisis')} style={{ width: '100%', padding: '12px 15px', background: activeTab === 'analisis' ? '#38bdf8' : 'transparent', color: activeTab === 'analisis' ? '#0f172a' : '#cbd5e1', border: 'none', borderRadius: '6px', textAlign: 'left', fontWeight: 'bold', cursor: 'pointer' }}>📈 Postulaciones</button>
-            </nav>
+              <button onClick={() => setActiveTab('muro')} style={{ width: '100%', padding: '12px 15px', background: activeTab === 'muro' ? '#38bdf8' : 'transparent', color: activeTab === 'muro' ? '#0f172a' : '#cbd5e1', border: 'none', borderRadius: '6px', textAlign: 'left', fontWeight: 'bold', cursor: 'pointer' }} > 💼 Muro de Oportunidades </button>
           </div>
         )}
         {sidebarAbierto && <button onClick={handleLogout} style={{ width: '100%', padding: '12px 15px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>🚪 Cerrar Sesión</button>}
