@@ -384,6 +384,16 @@ export default function DashboardCandidato() {
         )}
         {sidebarAbierto && <button onClick={handleLogout} style={{ width: '100%', padding: '12px 15px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>🚪 Cerrar Sesión</button>}
       </div>
+      <main style={{ flex: 1, padding: '20px' }}>
+  {/* ... Tus otras pestañas (inicio, perfil, etc.) ... */}
+
+  {activeTab === 'muro' && (
+    <MuroOportunidades 
+      tipoUsuario="candidato" // o "empresa", dependiendo de en qué dashboard estés
+      usuarioId="id_del_usuario_actual" 
+    />
+  )}
+</main>
 
       {/* CUERPO CENTRAL */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
