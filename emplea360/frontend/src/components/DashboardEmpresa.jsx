@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DashboardAcademia from './DashboardAcademia';
 
 export default function DashboardEmpresa() {
   // URL base de tu backend en Railway (Misma que usa el candidato)
